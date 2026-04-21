@@ -24,7 +24,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
           <img 
             src="/logo-bon-vivant.png" 
             alt="Bon Vivant - Bolos no pote artesanais" 
-            className="h-24 object-contain"
+            className="h-32 object-contain"
           />
           <p className="text-amber-700 font-medium text-sm mt-2 italic">
             ✨ A construção do nosso sonho ✨
