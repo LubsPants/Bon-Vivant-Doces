@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { TrendingUp, DollarSign, Package, Award, Target, Edit2, Check, TrendingDown } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { AppState } from '../types';
-import { getRecipeItemsCost } from '../utils/costs';
+import { getRecipeCost } from '../utils/costs';
 
 interface DashboardPageProps {
   state: AppState;
@@ -22,9 +22,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ state, setState })
   const totalCost = state.sales.reduce((sum, sale) => {
     const recipe = state.recipes.find(r => r.id === sale.recipeId);
     if (!recipe) return sum;
-    const recipeCost =
-      getRecipeItemsCost(recipe.ingredients, state.ingredients) +
-      getRecipeItemsCost(recipe.packaging, state.ingredients);
+    const recipeCost = getRecipeCost(recipe, state.ingredients, state.preparations);
 
     return sum + (recipeCost * sale.quantity);
   }, 0);

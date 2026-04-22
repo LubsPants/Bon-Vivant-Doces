@@ -18,11 +18,26 @@ export interface RecipeIngredient {
   displayMeasure?: string;
 }
 
+export interface RecipePreparation {
+  preparationId: string;
+  quantity: number;
+  displayMeasure?: string;
+}
+
+export interface Preparation {
+  id: string;
+  name: string;
+  ingredients: RecipeIngredient[];
+  yieldQuantity: number;
+  cost: number;
+}
+
 export interface Recipe {
   id: string;
   name: string;
   flavor: string;
   ingredients: RecipeIngredient[];
+  preparations: RecipePreparation[];
   packaging: RecipeIngredient[];
   salePrice: number;
   cost: number;
@@ -80,6 +95,7 @@ export interface MonthlyGoal {
 
 export interface AppState {
   ingredients: Ingredient[];
+  preparations: Preparation[];
   recipes: Recipe[];
   sales: Sale[];
   reservations: Reservation[];

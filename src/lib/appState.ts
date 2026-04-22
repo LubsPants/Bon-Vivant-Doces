@@ -7,6 +7,7 @@ function getCurrentMonth() {
 
 export const INITIAL_STATE: AppState = {
   ingredients: [],
+  preparations: [],
   recipes: [],
   sales: [],
   reservations: [],
@@ -20,6 +21,13 @@ function normalizeIngredient(item: Ingredient): Ingredient {
   return {
     ...item,
     yieldQuantity: item.yieldQuantity ?? undefined,
+  };
+}
+
+function normalizeRecipe(raw: AppState['recipes'][number]): AppState['recipes'][number] {
+  return {
+    ...raw,
+    preparations: Array.isArray(raw.preparations) ? raw.preparations : [],
   };
 }
 
@@ -106,7 +114,8 @@ export function normalizeAppState(value: unknown): AppState {
 
   return reconcileAppState({
     ingredients: Array.isArray(raw.ingredients) ? raw.ingredients.map(item => normalizeIngredient(item as Ingredient)) : [],
-    recipes: Array.isArray(raw.recipes) ? raw.recipes : [],
+    preparations: Array.isArray(raw.preparations) ? raw.preparations : [],
+    recipes: Array.isArray(raw.recipes) ? raw.recipes.map(item => normalizeRecipe(item as AppState['recipes'][number])) : [],
     sales: Array.isArray(raw.sales) ? raw.sales : [],
     reservations: Array.isArray(raw.reservations) ? raw.reservations : [],
     productions: Array.isArray(raw.productions) ? raw.productions : [],

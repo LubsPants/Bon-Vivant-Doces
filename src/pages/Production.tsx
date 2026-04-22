@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ProductionRecord, Recipe, ReadyStock, Ingredient, AppState, SellerStock } from '../types';
 import { Package, Plus, Calendar, ChefHat, Trash2, Pencil } from 'lucide-react';
-import { getRecipeItemsCost } from '../utils/costs';
+import { getRecipeCost as calculateRecipeCost, getRecipeIngredientConsumption } from '../utils/costs';
 import { getAvailableReadyStock, getAvailableSellerStock } from '../lib/stock';
 
 interface ProductionPageProps {
@@ -44,10 +44,7 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
   };
 
   const getRecipeCost = (recipe: Recipe) => {
-    const ingredientsCost = getRecipeItemsCost(recipe.ingredients, ingredients);
-    const packagingCost = getRecipeItemsCost(recipe.packaging, ingredients);
-
-    return ingredientsCost + packagingCost;
+    return calculateRecipeCost(recipe, ingredients, state.preparations);
   };
 
   const applyProductionToState = (
@@ -58,15 +55,9 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
     priscilaPortion: number
   ) => {
     const consumptionMap = new Map<string, number>();
+    const consumptionItems = getRecipeIngredientConsumption(recipe, prev.preparations);
 
-    recipe.ingredients.forEach(ri => {
-      consumptionMap.set(
-        ri.ingredientId,
-        (consumptionMap.get(ri.ingredientId) || 0) + (ri.quantity * quantity)
-      );
-    });
-
-    recipe.packaging.forEach(ri => {
+    consumptionItems.forEach(ri => {
       consumptionMap.set(
         ri.ingredientId,
         (consumptionMap.get(ri.ingredientId) || 0) + (ri.quantity * quantity)
@@ -206,15 +197,9 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
           .filter(item => item.quantity > 0);
 
         const restoreMap = new Map<string, number>();
+        const restoreItems = getRecipeIngredientConsumption(originalRecipe, revertedState.preparations);
 
-        originalRecipe.ingredients.forEach(item => {
-          restoreMap.set(
-            item.ingredientId,
-            (restoreMap.get(item.ingredientId) || 0) + (item.quantity * production.quantity)
-          );
-        });
-
-        originalRecipe.packaging.forEach(item => {
+        restoreItems.forEach(item => {
           restoreMap.set(
             item.ingredientId,
             (restoreMap.get(item.ingredientId) || 0) + (item.quantity * production.quantity)
@@ -359,15 +344,9 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
       }
 
       const restoreMap = new Map<string, number>();
+      const restoreItems = getRecipeIngredientConsumption(recipe, prev.preparations);
 
-      recipe.ingredients.forEach(item => {
-        restoreMap.set(
-          item.ingredientId,
-          (restoreMap.get(item.ingredientId) || 0) + (item.quantity * production.quantity)
-        );
-      });
-
-      recipe.packaging.forEach(item => {
+      restoreItems.forEach(item => {
         restoreMap.set(
           item.ingredientId,
           (restoreMap.get(item.ingredientId) || 0) + (item.quantity * production.quantity)
