@@ -94,15 +94,13 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
       });
 
       const existingStock = prev.readyStock.find(rs => rs.recipeId === recipe.id);
-      const newReadyStock: ReadyStock[] = remainingReadyStock > 0
-        ? existingStock
-          ? prev.readyStock.map(rs =>
-              rs.recipeId === recipe.id
-                ? { ...rs, quantity: rs.quantity + remainingReadyStock }
-                : rs
-            )
-          : [...prev.readyStock, { recipeId: recipe.id, recipeName: recipe.name, quantity: remainingReadyStock }]
-        : prev.readyStock;
+      const newReadyStock: ReadyStock[] = existingStock
+        ? prev.readyStock.map(rs =>
+            rs.recipeId === recipe.id
+              ? { ...rs, quantity: rs.quantity + productionQuantity }
+              : rs
+          )
+        : [...prev.readyStock, { recipeId: recipe.id, recipeName: recipe.name, quantity: productionQuantity }];
 
       const nextSellerStock = [...prev.sellerStock];
 
@@ -158,30 +156,8 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
         return prev;
       }
 
-      const newReadyQuantity = production.quantity - luizaQuantity - priscilaQuantity;
-      const oldReadyQuantity = production.quantity - production.luizaQuantity - production.priscilaQuantity;
-      const readyDelta = newReadyQuantity - oldReadyQuantity;
       const luizaDelta = luizaQuantity - production.luizaQuantity;
       const priscilaDelta = priscilaQuantity - production.priscilaQuantity;
-
-      let nextReadyStock = [...prev.readyStock];
-      const readyIndex = nextReadyStock.findIndex(item => item.recipeId === production.recipeId);
-
-      if (readyIndex >= 0) {
-        const nextQuantity = nextReadyStock[readyIndex].quantity + readyDelta;
-
-        if (nextQuantity > 0) {
-          nextReadyStock[readyIndex] = { ...nextReadyStock[readyIndex], quantity: nextQuantity };
-        } else {
-          nextReadyStock = nextReadyStock.filter((_, index) => index !== readyIndex);
-        }
-      } else if (newReadyQuantity > 0 && readyDelta > 0) {
-        nextReadyStock.push({
-          recipeId: production.recipeId,
-          recipeName: production.recipeName,
-          quantity: readyDelta,
-        });
-      }
 
       let nextSellerStock = [...prev.sellerStock];
 
@@ -229,7 +205,6 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
               }
             : item
         ),
-        readyStock: nextReadyStock,
         sellerStock: nextSellerStock,
       };
     });
@@ -287,7 +262,7 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
       const restoredStock = prev.readyStock
         .map(item =>
           item.recipeId === production.recipeId
-            ? { ...item, quantity: Math.max(0, item.quantity - (production.quantity - production.luizaQuantity - production.priscilaQuantity)) }
+            ? { ...item, quantity: Math.max(0, item.quantity - production.quantity) }
             : item
         )
         .filter(item => item.quantity > 0);
@@ -453,7 +428,7 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Fica no estoque geral</label>
               <div className="w-full p-2 rounded-lg bg-slate-100 text-slate-700 font-semibold">
-                {remainingReadyStock} unidades
+                Continua {productionQuantity} no estoque pronto total
               </div>
             </div>
           </div>

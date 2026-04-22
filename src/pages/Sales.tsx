@@ -19,8 +19,11 @@ export const SalesPage: React.FC<SalesPageProps> = ({ state, setState }) => {
   const selectedSellerStock = state.sellerStock.find(
     item => item.recipeId === saleData.recipeId && item.seller === saleData.seller
   );
-  const hasEnoughStock = !saleData.recipeId
-    || (selectedSellerStock ? selectedSellerStock.quantity >= saleData.quantity : false);
+  const selectedReadyStock = state.readyStock.find(item => item.recipeId === saleData.recipeId);
+  const hasEnoughStock = !saleData.recipeId || (
+    (selectedSellerStock ? selectedSellerStock.quantity >= saleData.quantity : false)
+    && (selectedReadyStock ? selectedReadyStock.quantity >= saleData.quantity : false)
+  );
 
   const recordSale = () => {
     if (!saleData.recipeId || saleData.quantity <= 0) return;
@@ -29,7 +32,8 @@ export const SalesPage: React.FC<SalesPageProps> = ({ state, setState }) => {
     const sellerStockItem = state.sellerStock.find(
       item => item.recipeId === saleData.recipeId && item.seller === saleData.seller
     );
-    if (!recipe || !sellerStockItem || sellerStockItem.quantity < saleData.quantity) return;
+    const readyStockItem = state.readyStock.find(item => item.recipeId === saleData.recipeId);
+    if (!recipe || !sellerStockItem || sellerStockItem.quantity < saleData.quantity || !readyStockItem || readyStockItem.quantity < saleData.quantity) return;
 
     const sale: Sale = {
       id: crypto.randomUUID(),
@@ -51,10 +55,19 @@ export const SalesPage: React.FC<SalesPageProps> = ({ state, setState }) => {
         })
         .filter(item => item.quantity > 0);
 
+      const updatedReadyStock = prev.readyStock
+        .map(item =>
+          item.recipeId === saleData.recipeId
+            ? { ...item, quantity: Math.max(0, item.quantity - saleData.quantity) }
+            : item
+        )
+        .filter(item => item.quantity > 0);
+
       return {
         ...prev,
         sales: [sale, ...prev.sales],
-        sellerStock: updatedSellerStock
+        sellerStock: updatedSellerStock,
+        readyStock: updatedReadyStock,
       };
     });
 
@@ -72,6 +85,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({ state, setState }) => {
       const existingStock = prev.sellerStock.find(
         item => item.recipeId === sale.recipeId && item.seller === sale.seller
       );
+      const existingReadyStock = prev.readyStock.find(item => item.recipeId === sale.recipeId);
       const updatedSellerStock = existingStock
         ? prev.sellerStock.map(item =>
             item.recipeId === sale.recipeId && item.seller === sale.seller
@@ -87,11 +101,26 @@ export const SalesPage: React.FC<SalesPageProps> = ({ state, setState }) => {
               quantity: sale.quantity,
             },
           ];
+      const updatedReadyStock = existingReadyStock
+        ? prev.readyStock.map(item =>
+            item.recipeId === sale.recipeId
+              ? { ...item, quantity: item.quantity + sale.quantity }
+              : item
+          )
+        : [
+            ...prev.readyStock,
+            {
+              recipeId: sale.recipeId,
+              recipeName: sale.recipeName,
+              quantity: sale.quantity,
+            },
+          ];
 
       return {
         ...prev,
         sales: prev.sales.filter(item => item.id !== id),
         sellerStock: updatedSellerStock,
+        readyStock: updatedReadyStock,
       };
     });
   };
@@ -166,8 +195,8 @@ export const SalesPage: React.FC<SalesPageProps> = ({ state, setState }) => {
           {saleData.recipeId && (
             <div className={`rounded-2xl border px-4 py-3 text-sm ${hasEnoughStock ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
               {hasEnoughStock
-                ? `Estoque disponivel com ${saleData.seller}: ${selectedSellerStock?.quantity ?? 0} unidade(s).`
-                : `Estoque insuficiente com ${saleData.seller}. Disponivel agora: ${selectedSellerStock?.quantity ?? 0} unidade(s).`}
+                ? `Com ${saleData.seller}: ${selectedSellerStock?.quantity ?? 0} unidade(s). Estoque pronto total: ${selectedReadyStock?.quantity ?? 0}.`
+                : `Estoque insuficiente. Com ${saleData.seller}: ${selectedSellerStock?.quantity ?? 0}. Estoque pronto total: ${selectedReadyStock?.quantity ?? 0}.`}
             </div>
           )}
 
