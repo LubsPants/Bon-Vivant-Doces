@@ -15,6 +15,7 @@ export interface Ingredient {
 export interface RecipeIngredient {
   ingredientId: string;
   quantity: number;
+  displayMeasure?: string;
 }
 
 export interface Recipe {

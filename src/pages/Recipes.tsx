@@ -28,8 +28,8 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [recipeForm, setRecipeForm] = useState<RecipeFormState>(EMPTY_RECIPE);
-  const [tempIng, setTempIng] = useState({ ingredientId: '', quantity: '' });
-  const [tempPackaging, setTempPackaging] = useState({ ingredientId: '', quantity: '1' });
+  const [tempIng, setTempIng] = useState({ ingredientId: '', quantity: '', displayMeasure: '' });
+  const [tempPackaging, setTempPackaging] = useState({ ingredientId: '', quantity: '1', displayMeasure: '' });
   const [activeTab, setActiveTab] = useState<'ingredients' | 'packaging'>('ingredients');
 
   const calculateCost = (ingredients: RecipeIngredient[], packaging: RecipeIngredient[]) => {
@@ -42,8 +42,8 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
     setRecipeForm(EMPTY_RECIPE);
     setEditingId(null);
     setShowForm(false);
-    setTempIng({ ingredientId: '', quantity: '' });
-    setTempPackaging({ ingredientId: '', quantity: '1' });
+    setTempIng({ ingredientId: '', quantity: '', displayMeasure: '' });
+    setTempPackaging({ ingredientId: '', quantity: '1', displayMeasure: '' });
     setActiveTab('ingredients');
   };
 
@@ -56,15 +56,22 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
 
     setRecipeForm(current => ({
       ...current,
-      [type]: [...current[type], { ingredientId: source.ingredientId, quantity: parseFloat(source.quantity) }],
+      [type]: [
+        ...current[type],
+        {
+          ingredientId: source.ingredientId,
+          quantity: parseFloat(source.quantity),
+          displayMeasure: source.displayMeasure.trim() || undefined,
+        },
+      ],
     }));
 
     if (type === 'ingredients') {
-      setTempIng({ ingredientId: '', quantity: '' });
+      setTempIng({ ingredientId: '', quantity: '', displayMeasure: '' });
       return;
     }
 
-    setTempPackaging({ ingredientId: '', quantity: '1' });
+    setTempPackaging({ ingredientId: '', quantity: '1', displayMeasure: '' });
   };
 
   const removeItem = (type: 'ingredients' | 'packaging', index: number) => {
@@ -232,8 +239,8 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
 
           {activeTab === 'ingredients' ? (
             <>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                <div className="md:col-span-2">
                   <label className="block text-xs font-medium text-slate-500 mb-1">Ingrediente</label>
                   <select
                     className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
@@ -256,6 +263,15 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
                     onChange={e => setTempIng({ ...tempIng, quantity: e.target.value })}
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Medida Caseira</label>
+                  <input
+                    className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
+                    placeholder="Ex: 5 colheres de sopa"
+                    value={tempIng.displayMeasure}
+                    onChange={e => setTempIng({ ...tempIng, displayMeasure: e.target.value })}
+                  />
+                </div>
               </div>
               <button
                 type="button"
@@ -266,7 +282,7 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
                 Adicionar Ingrediente
               </button>
               <p className="text-xs text-slate-500">
-                Se o item tiver rendimento cadastrado no estoque, a quantidade aqui pode ser por bolo.
+                Use `Qtd.` para o calculo de custo e `Medida Caseira` para registrar algo como `5 colheres de sopa`.
               </p>
               {recipeForm.ingredients.length > 0 && (
                 <div className="space-y-1">
@@ -275,7 +291,7 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
                     return (
                       <div key={`${item.ingredientId}-${index}`} className="flex justify-between items-center p-2 bg-slate-50 rounded-lg">
                         <span className="text-sm text-slate-700">
-                          {ingredient?.name} - {item.quantity} {ingredient?.unit}
+                          {ingredient?.name} - {item.displayMeasure || `${item.quantity} ${ingredient?.unit}`}
                         </span>
                         <button type="button" onClick={() => removeItem('ingredients', index)} className="text-rose-500 hover:text-rose-700">
                           <Trash2 size={14} />
@@ -288,8 +304,8 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
             </>
           ) : (
             <>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                <div className="md:col-span-2">
                   <label className="block text-xs font-medium text-slate-500 mb-1">Embalagem</label>
                   <select
                     className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
@@ -312,6 +328,15 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
                     onChange={e => setTempPackaging({ ...tempPackaging, quantity: e.target.value })}
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Medida Caseira</label>
+                  <input
+                    className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
+                    placeholder="Ex: 1 pote"
+                    value={tempPackaging.displayMeasure}
+                    onChange={e => setTempPackaging({ ...tempPackaging, displayMeasure: e.target.value })}
+                  />
+                </div>
               </div>
               <button
                 type="button"
@@ -331,7 +356,7 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
                     return (
                       <div key={`${item.ingredientId}-${index}`} className="flex justify-between items-center p-2 bg-slate-50 rounded-lg">
                         <span className="text-sm text-slate-700">
-                          {ingredient?.name} - {item.quantity} {ingredient?.unit}
+                          {ingredient?.name} - {item.displayMeasure || `${item.quantity} ${ingredient?.unit}`}
                         </span>
                         <button type="button" onClick={() => removeItem('packaging', index)} className="text-rose-500 hover:text-rose-700">
                           <Trash2 size={14} />
