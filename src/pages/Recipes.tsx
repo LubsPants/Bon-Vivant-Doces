@@ -168,6 +168,22 @@ function parseDisplayMeasureToQuantity(displayMeasure: string, unit: Ingredient[
   return null;
 }
 
+function formatConvertedQuantity(quantity: number, unit: Ingredient['unit']) {
+  if (unit === 'kg') {
+    return quantity >= 1 ? `${quantity.toFixed(3).replace('.', ',')} kg` : `${Math.round(quantity * 1000)} g`;
+  }
+
+  if (unit === 'L') {
+    return quantity >= 1 ? `${quantity.toFixed(3).replace('.', ',')} L` : `${Math.round(quantity * 1000)} ml`;
+  }
+
+  if (unit === 'g' || unit === 'ml') {
+    return `${Number.isInteger(quantity) ? quantity : Number(quantity.toFixed(2)).toString().replace('.', ',')} ${unit}`;
+  }
+
+  return `${quantity} ${unit}`;
+}
+
 function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -199,6 +215,18 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
   const ingredientMeasureOptions = selectedTempIngredient ? getMeasureOptions(selectedTempIngredient.unit) : [];
   const packagingMeasureOptions = selectedTempPackaging ? getMeasureOptions(selectedTempPackaging.unit) : [];
   const preparationMeasureOptions = selectedPreparationIngredient ? getMeasureOptions(selectedPreparationIngredient.unit) : [];
+  const ingredientCaseiraPreview =
+    selectedTempIngredient && tempIng.displayMeasure.trim()
+      ? parseDisplayMeasureToQuantity(tempIng.displayMeasure, selectedTempIngredient.unit)
+      : null;
+  const preparationCaseiraPreview =
+    selectedPreparationIngredient && tempPreparationIngredient.displayMeasure.trim()
+      ? parseDisplayMeasureToQuantity(tempPreparationIngredient.displayMeasure, selectedPreparationIngredient.unit)
+      : null;
+  const packagingCaseiraPreview =
+    selectedTempPackaging && tempPackaging.displayMeasure.trim()
+      ? parseDisplayMeasureToQuantity(tempPackaging.displayMeasure, selectedTempPackaging.unit)
+      : null;
 
   const resetRecipeForm = () => {
     setRecipeForm(EMPTY_RECIPE);
@@ -523,6 +551,13 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
                   />
                 </div>
               </div>
+              {selectedPreparationIngredient && tempPreparationIngredient.displayMeasure.trim() && (
+                <p className="text-xs text-sky-700">
+                  {preparationCaseiraPreview
+                    ? `Conversao antes de adicionar: ${formatConvertedQuantity(preparationCaseiraPreview, selectedPreparationIngredient.unit)}`
+                    : 'Nao consegui converter essa medida caseira automaticamente.'}
+                </p>
+              )}
 
               <button
                 type="button"
@@ -772,11 +807,18 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
                       <input
                         className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
                         placeholder="Ex: 150 ml ou 5 colheres de sopa"
-                        value={tempIng.displayMeasure}
-                        onChange={e => setTempIng({ ...tempIng, displayMeasure: e.target.value })}
-                      />
-                    </div>
-                  </div>
+                    value={tempIng.displayMeasure}
+                    onChange={e => setTempIng({ ...tempIng, displayMeasure: e.target.value })}
+                  />
+                </div>
+              </div>
+              {selectedTempIngredient && tempIng.displayMeasure.trim() && (
+                <p className="text-xs text-sky-700">
+                  {ingredientCaseiraPreview
+                    ? `Conversao antes de adicionar: ${formatConvertedQuantity(ingredientCaseiraPreview, selectedTempIngredient.unit)}`
+                    : 'Nao consegui converter essa medida caseira automaticamente.'}
+                </p>
+              )}
 
                   <button
                     type="button"
@@ -967,11 +1009,18 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
                       <input
                         className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
                         placeholder="Ex: 1 pote + 1 colher"
-                        value={tempPackaging.displayMeasure}
-                        onChange={e => setTempPackaging({ ...tempPackaging, displayMeasure: e.target.value })}
-                      />
-                    </div>
+                      value={tempPackaging.displayMeasure}
+                      onChange={e => setTempPackaging({ ...tempPackaging, displayMeasure: e.target.value })}
+                    />
                   </div>
+                </div>
+                  {selectedTempPackaging && tempPackaging.displayMeasure.trim() && (
+                    <p className="text-xs text-sky-700">
+                      {packagingCaseiraPreview
+                        ? `Conversao antes de adicionar: ${formatConvertedQuantity(packagingCaseiraPreview, selectedTempPackaging.unit)}`
+                        : 'Nao consegui converter essa medida caseira automaticamente.'}
+                    </p>
+                  )}
 
                   <button
                     type="button"
