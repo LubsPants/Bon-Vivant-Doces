@@ -1,4 +1,5 @@
 import { AppState, Ingredient, ReadyStock, SellerStock } from '../types';
+import { getSellerPrice } from './sales';
 
 function getCurrentMonth() {
   return new Date().toISOString().slice(0, 7);
@@ -87,6 +88,14 @@ export function reconcileAppState(state: AppState): AppState {
 
   return {
     ...state,
+    sales: state.sales.map(item => ({
+      ...item,
+      price: getSellerPrice(item.seller),
+    })),
+    reservations: state.reservations.map(item => ({
+      ...item,
+      price: getSellerPrice(item.seller),
+    })),
     readyStock,
     sellerStock,
   };

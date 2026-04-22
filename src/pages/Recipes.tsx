@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ChefHat, Pencil, Plus, Trash2 } from 'lucide-react';
-import { AppState, Recipe, RecipeIngredient } from '../types';
+import { AppState, Ingredient, Recipe, RecipeIngredient } from '../types';
 import { getRecipeItemsCost } from '../utils/costs';
 
 interface RecipesPageProps {
@@ -24,12 +24,57 @@ const EMPTY_RECIPE: RecipeFormState = {
   packaging: [],
 };
 
+type MeasureOption = {
+  id: string;
+  label: string;
+  toBaseUnit: number;
+};
+
+function getMeasureOptions(unit: Ingredient['unit']): MeasureOption[] {
+  switch (unit) {
+    case 'L':
+      return [
+        { id: 'L', label: 'L', toBaseUnit: 1 },
+        { id: 'ml', label: 'ml', toBaseUnit: 0.001 },
+        { id: 'cup_200ml', label: 'xicara (200 ml)', toBaseUnit: 0.2 },
+        { id: 'half_cup_100ml', label: 'meia xicara (100 ml)', toBaseUnit: 0.1 },
+        { id: 'tbsp_15ml', label: 'colher de sopa (15 ml)', toBaseUnit: 0.015 },
+        { id: 'tsp_5ml', label: 'colher de cha (5 ml)', toBaseUnit: 0.005 },
+      ];
+    case 'ml':
+      return [
+        { id: 'ml', label: 'ml', toBaseUnit: 1 },
+        { id: 'L', label: 'L', toBaseUnit: 1000 },
+        { id: 'cup_200ml', label: 'xicara (200 ml)', toBaseUnit: 200 },
+        { id: 'half_cup_100ml', label: 'meia xicara (100 ml)', toBaseUnit: 100 },
+        { id: 'tbsp_15ml', label: 'colher de sopa (15 ml)', toBaseUnit: 15 },
+        { id: 'tsp_5ml', label: 'colher de cha (5 ml)', toBaseUnit: 5 },
+      ];
+    case 'kg':
+      return [
+        { id: 'kg', label: 'kg', toBaseUnit: 1 },
+        { id: 'g', label: 'g', toBaseUnit: 0.001 },
+      ];
+    case 'g':
+      return [
+        { id: 'g', label: 'g', toBaseUnit: 1 },
+        { id: 'kg', label: 'kg', toBaseUnit: 1000 },
+      ];
+    case 'un':
+      return [{ id: 'un', label: 'un', toBaseUnit: 1 }];
+    case 'pct':
+      return [{ id: 'pct', label: 'pct', toBaseUnit: 1 }];
+    default:
+      return [{ id: unit, label: unit, toBaseUnit: 1 }];
+  }
+}
+
 export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [recipeForm, setRecipeForm] = useState<RecipeFormState>(EMPTY_RECIPE);
-  const [tempIng, setTempIng] = useState({ ingredientId: '', quantity: '', displayMeasure: '' });
-  const [tempPackaging, setTempPackaging] = useState({ ingredientId: '', quantity: '1', displayMeasure: '' });
+  const [tempIng, setTempIng] = useState({ ingredientId: '', quantity: '', measureUnit: '', displayMeasure: '' });
+  const [tempPackaging, setTempPackaging] = useState({ ingredientId: '', quantity: '1', measureUnit: '', displayMeasure: '' });
   const [activeTab, setActiveTab] = useState<'ingredients' | 'packaging'>('ingredients');
 
   const calculateCost = (ingredients: RecipeIngredient[], packaging: RecipeIngredient[]) => {
@@ -42,17 +87,23 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
     setRecipeForm(EMPTY_RECIPE);
     setEditingId(null);
     setShowForm(false);
-    setTempIng({ ingredientId: '', quantity: '', displayMeasure: '' });
-    setTempPackaging({ ingredientId: '', quantity: '1', displayMeasure: '' });
+    setTempIng({ ingredientId: '', quantity: '', measureUnit: '', displayMeasure: '' });
+    setTempPackaging({ ingredientId: '', quantity: '1', measureUnit: '', displayMeasure: '' });
     setActiveTab('ingredients');
   };
 
   const addItemToRecipe = (type: 'ingredients' | 'packaging') => {
     const source = type === 'ingredients' ? tempIng : tempPackaging;
+    const ingredient = state.ingredients.find(item => item.id === source.ingredientId);
 
-    if (!source.ingredientId || !source.quantity) {
+    if (!source.ingredientId || !source.quantity || !ingredient) {
       return;
     }
+
+    const measureOptions = getMeasureOptions(ingredient.unit);
+    const selectedMeasure = measureOptions.find(option => option.id === source.measureUnit) ?? measureOptions[0];
+    const normalizedQuantity = parseFloat(source.quantity) * selectedMeasure.toBaseUnit;
+    const generatedMeasure = `${source.quantity} ${selectedMeasure.label}`;
 
     setRecipeForm(current => ({
       ...current,
@@ -60,18 +111,18 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
         ...current[type],
         {
           ingredientId: source.ingredientId,
-          quantity: parseFloat(source.quantity),
-          displayMeasure: source.displayMeasure.trim() || undefined,
+          quantity: normalizedQuantity,
+          displayMeasure: source.displayMeasure.trim() || generatedMeasure,
         },
       ],
     }));
 
     if (type === 'ingredients') {
-      setTempIng({ ingredientId: '', quantity: '', displayMeasure: '' });
+      setTempIng({ ingredientId: '', quantity: '', measureUnit: '', displayMeasure: '' });
       return;
     }
 
-    setTempPackaging({ ingredientId: '', quantity: '1', displayMeasure: '' });
+    setTempPackaging({ ingredientId: '', quantity: '1', measureUnit: '', displayMeasure: '' });
   };
 
   const removeItem = (type: 'ingredients' | 'packaging', index: number) => {
@@ -155,6 +206,10 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
 
   const ingredientsList = state.ingredients.filter(i => i.category === 'ingredient');
   const packagingList = state.ingredients.filter(i => i.category === 'packaging');
+  const selectedTempIngredient = state.ingredients.find(item => item.id === tempIng.ingredientId);
+  const selectedTempPackaging = state.ingredients.find(item => item.id === tempPackaging.ingredientId);
+  const ingredientMeasureOptions = selectedTempIngredient ? getMeasureOptions(selectedTempIngredient.unit) : [];
+  const packagingMeasureOptions = selectedTempPackaging ? getMeasureOptions(selectedTempPackaging.unit) : [];
 
   return (
     <div className="space-y-6">
@@ -245,7 +300,11 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
                   <select
                     className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
                     value={tempIng.ingredientId}
-                    onChange={e => setTempIng({ ...tempIng, ingredientId: e.target.value })}
+                    onChange={e => {
+                      const ingredient = state.ingredients.find(item => item.id === e.target.value);
+                      const defaultMeasure = ingredient ? getMeasureOptions(ingredient.unit)[0]?.id ?? '' : '';
+                      setTempIng({ ...tempIng, ingredientId: e.target.value, measureUnit: defaultMeasure });
+                    }}
                   >
                     <option value="">Selecione...</option>
                     {ingredientsList.map(ing => (
@@ -264,14 +323,28 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Medida Caseira</label>
-                  <input
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Medida da Receita</label>
+                  <select
                     className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
-                    placeholder="Ex: 5 colheres de sopa"
-                    value={tempIng.displayMeasure}
-                    onChange={e => setTempIng({ ...tempIng, displayMeasure: e.target.value })}
-                  />
+                    value={tempIng.measureUnit}
+                    onChange={e => setTempIng({ ...tempIng, measureUnit: e.target.value })}
+                    disabled={!selectedTempIngredient}
+                  >
+                    <option value="">Selecione...</option>
+                    {ingredientMeasureOptions.map(option => (
+                      <option key={option.id} value={option.id}>{option.label}</option>
+                    ))}
+                  </select>
                 </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Medida Caseira / Observacao</label>
+                <input
+                  className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
+                  placeholder="Ex: 5 colheres de sopa bem cheias"
+                  value={tempIng.displayMeasure}
+                  onChange={e => setTempIng({ ...tempIng, displayMeasure: e.target.value })}
+                />
               </div>
               <button
                 type="button"
@@ -282,7 +355,7 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
                 Adicionar Ingrediente
               </button>
               <p className="text-xs text-slate-500">
-                Use `Qtd.` para o calculo de custo e `Medida Caseira` para registrar algo como `5 colheres de sopa`.
+                Exemplo com leite comprado em `1 L`: use `Qtd. = 150` e `Medida da Receita = ml`, ou `Qtd. = 1` e `Medida da Receita = xicara (200 ml)`.
               </p>
               {recipeForm.ingredients.length > 0 && (
                 <div className="space-y-1">
@@ -310,7 +383,11 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
                   <select
                     className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
                     value={tempPackaging.ingredientId}
-                    onChange={e => setTempPackaging({ ...tempPackaging, ingredientId: e.target.value })}
+                    onChange={e => {
+                      const ingredient = state.ingredients.find(item => item.id === e.target.value);
+                      const defaultMeasure = ingredient ? getMeasureOptions(ingredient.unit)[0]?.id ?? '' : '';
+                      setTempPackaging({ ...tempPackaging, ingredientId: e.target.value, measureUnit: defaultMeasure });
+                    }}
                   >
                     <option value="">Selecione...</option>
                     {packagingList.map(ing => (
@@ -329,14 +406,28 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Medida Caseira</label>
-                  <input
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Medida da Receita</label>
+                  <select
                     className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
-                    placeholder="Ex: 1 pote"
-                    value={tempPackaging.displayMeasure}
-                    onChange={e => setTempPackaging({ ...tempPackaging, displayMeasure: e.target.value })}
-                  />
+                    value={tempPackaging.measureUnit}
+                    onChange={e => setTempPackaging({ ...tempPackaging, measureUnit: e.target.value })}
+                    disabled={!selectedTempPackaging}
+                  >
+                    <option value="">Selecione...</option>
+                    {packagingMeasureOptions.map(option => (
+                      <option key={option.id} value={option.id}>{option.label}</option>
+                    ))}
+                  </select>
                 </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Medida Caseira / Observacao</label>
+                <input
+                  className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
+                  placeholder="Ex: 1 pote"
+                  value={tempPackaging.displayMeasure}
+                  onChange={e => setTempPackaging({ ...tempPackaging, displayMeasure: e.target.value })}
+                />
               </div>
               <button
                 type="button"

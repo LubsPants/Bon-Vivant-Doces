@@ -182,6 +182,9 @@ export const ReservationsPage: React.FC<ReservationsPageProps> = ({ state, setSt
                   Priscila
                 </button>
               </div>
+              <div className="text-xs text-emerald-600 mt-2 font-medium">
+                Valor da reserva com {reservationData.seller}: R$ {getSellerPrice(reservationData.seller).toFixed(2)} por unidade
+              </div>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Quantidade</label>
