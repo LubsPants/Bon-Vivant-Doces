@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Pencil, Plus, Save, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Save, Trash2 } from 'lucide-react';
 import { AppState, Ingredient } from '../types';
-import { getIngredientCost } from '../utils/costs';
 
 interface IngredientsPageProps {
   state: AppState;
@@ -14,8 +13,6 @@ type IngredientFormState = {
   purchasePrice: string;
   purchaseQuantity: string;
   currentStock: string;
-  minStock: string;
-  yieldQuantity: string;
   category: Ingredient['category'];
 };
 
@@ -27,8 +24,6 @@ const EMPTY_FORM: IngredientFormState = {
   purchasePrice: '',
   purchaseQuantity: '',
   currentStock: '',
-  minStock: '10',
-  yieldQuantity: '',
   category: 'ingredient',
 };
 
@@ -41,8 +36,6 @@ function toFormState(ingredient: Ingredient): IngredientFormState {
     purchasePrice: ingredient.purchasePrice.toString(),
     purchaseQuantity: ingredient.purchaseQuantity.toString(),
     currentStock: ingredient.currentStock.toString(),
-    minStock: ingredient.minStock.toString(),
-    yieldQuantity: ingredient.yieldQuantity?.toString() ?? '',
     category: ingredient.category,
   };
 }
@@ -162,8 +155,6 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
 
           const purchasePrice = parseFloat(form.purchasePrice);
           const purchaseQuantity = parseFloat(form.purchaseQuantity);
-          const minStock = parseFloat(form.minStock) || 0;
-          const yieldQuantity = form.yieldQuantity ? parseFloat(form.yieldQuantity) : undefined;
           const normalizedCurrentStock = normalizeStockQuantity(
             parseFloat(form.currentStock) || 0,
             stockInputUnit,
@@ -178,8 +169,8 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
               purchasePrice,
               purchaseQuantity,
               currentStock: item.currentStock + addedStock,
-              minStock,
-              yieldQuantity,
+              minStock: 0,
+              yieldQuantity: undefined,
               unit: form.unit,
               category: form.category,
               name: form.name,
@@ -193,9 +184,9 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
             purchasePrice,
             purchaseQuantity,
             currentStock: normalizedCurrentStock,
-            minStock,
+            minStock: 0,
             category: form.category,
-            yieldQuantity,
+            yieldQuantity: undefined,
           };
         }),
       }));
@@ -215,9 +206,9 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
         stockInputUnit,
         form.unit
       ),
-      minStock: parseFloat(form.minStock) || 0,
+      minStock: 0,
       category: form.category,
-      yieldQuantity: form.yieldQuantity ? parseFloat(form.yieldQuantity) : undefined,
+      yieldQuantity: undefined,
     };
 
     setState(prev => ({ ...prev, ingredients: [...prev.ingredients, ingredient] }));
@@ -245,10 +236,6 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
   const getCardStyle = (ingredient: Ingredient) => {
     if (ingredient.currentStock <= 0) {
       return 'border-red-300 bg-red-50';
-    }
-
-    if (ingredient.currentStock <= ingredient.minStock) {
-      return 'border-amber-200 bg-amber-50';
     }
 
     return 'border-rose-100 bg-white';
@@ -292,7 +279,7 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
           <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm ${editMode === 'restock' ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-700'}`}>
             {editMode === 'restock'
               ? 'Modo reposicao: informe o valor da compra atual, a quantidade comprada agora e quanto vai entrar no estoque.'
-              : 'Modo atualizacao: use quando precisar corrigir nome, unidade, estoque atual, alerta minimo ou dados de custo.'}
+              : 'Modo atualizacao: use quando precisar corrigir nome, unidade, estoque atual ou dados de custo.'}
           </div>
         )}
 
@@ -357,16 +344,6 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Rendeu Quantos Bolos?</label>
-            <input
-              type="number"
-              className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
-              placeholder="Ex: 20"
-              value={form.yieldQuantity}
-              onChange={e => setForm({ ...form, yieldQuantity: e.target.value })}
-            />
-          </div>
-          <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">
               {editMode === 'restock' ? 'Qtd. da Reposicao' : 'Estoque Atual'}
             </label>
@@ -393,16 +370,6 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
                 Exemplo: compra em {form.unit}, mas estoque atual em {form.unit === 'kg' ? 'g' : 'ml'}.
               </p>
             )}
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Estoque Mínimo</label>
-            <input
-              type="number"
-              className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
-              placeholder="10"
-              value={form.minStock}
-              onChange={e => setForm({ ...form, minStock: e.target.value })}
-            />
           </div>
           <div className="col-span-2 pt-2 flex gap-3">
             <button
@@ -460,7 +427,6 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
 
         {visibleIngredients.map(ingredient => {
           const isOutOfStock = ingredient.currentStock <= 0;
-          const isLowStock = !isOutOfStock && ingredient.currentStock <= ingredient.minStock;
 
           return (
             <div key={ingredient.id} className={`p-4 rounded-2xl shadow-sm border flex justify-between items-center ${getCardStyle(ingredient)}`}>
@@ -475,29 +441,19 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
                       Zerado
                     </span>
                   )}
-                  {isLowStock && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-                      Alerta
-                    </span>
-                  )}
                 </div>
                 <div className={`text-xs mt-1 ${isOutOfStock ? 'text-red-700' : 'text-slate-500'}`}>
-                  Estoque: {formatStockDisplay(ingredient.currentStock, ingredient.unit)} | Min.: {formatStockDisplay(ingredient.minStock, ingredient.unit)}
+                  Estoque: {formatStockDisplay(ingredient.currentStock, ingredient.unit)}
                 </div>
                 <div className="text-xs text-slate-500">
                   Custo base: R$ {formatCurrency(ingredient.purchasePrice / ingredient.purchaseQuantity)}/{ingredient.unit}
                 </div>
-                {ingredient.yieldQuantity ? (
-                  <div className="text-xs text-slate-500 mt-1">
-                    Rendimento: {ingredient.yieldQuantity} bolos | Custo por bolo: R$ {formatCurrency(getIngredientCost(ingredient, 1))}
-                  </div>
-                ) : null}
+                <div className="text-xs text-slate-500 mt-1">
+                  O custo da producao vem do que a receita e os preparos-base consomem.
+                </div>
               </div>
 
               <div className="flex items-center gap-2">
-                {(isOutOfStock || isLowStock) && (
-                  <AlertTriangle size={18} className={isOutOfStock ? 'text-red-500' : 'text-amber-500'} />
-                )}
                 <button
                   type="button"
                   onClick={() => startEditing(ingredient)}

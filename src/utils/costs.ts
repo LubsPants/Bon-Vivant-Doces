@@ -1,10 +1,7 @@
 import { Ingredient, Preparation, Recipe, RecipeIngredient, RecipePreparation } from '../types';
 
 export function getIngredientCost(ingredient: Ingredient, quantity: number) {
-  const costBase =
-    ingredient.yieldQuantity && ingredient.yieldQuantity > 0
-      ? ingredient.yieldQuantity
-      : ingredient.purchaseQuantity;
+  const costBase = ingredient.purchaseQuantity;
 
   if (!costBase) {
     return 0;
