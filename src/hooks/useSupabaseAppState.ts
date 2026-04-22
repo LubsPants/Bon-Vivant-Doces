@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type React from 'react';
-import { INITIAL_STATE, normalizeAppState } from '../lib/appState';
+import { INITIAL_STATE, normalizeAppState, reconcileAppState } from '../lib/appState';
 import { APP_STATE_ROW_ID, APP_STATE_TABLE, isSupabaseConfigured, supabase } from '../lib/supabase';
 import { AppState } from '../types';
 
@@ -59,9 +59,11 @@ async function persistAppState(state: AppState, updatedAt: string) {
     return;
   }
 
+  const reconciledState = reconcileAppState(state);
+
   const { error } = await supabase.from(APP_STATE_TABLE).upsert({
     id: APP_STATE_ROW_ID,
-    state,
+    state: reconciledState,
     updated_at: updatedAt,
   });
 
@@ -256,9 +258,10 @@ export function useSupabaseAppState() {
   }, [state]);
 
   const setState: React.Dispatch<React.SetStateAction<AppState>> = value => {
-    const nextState = typeof value === 'function'
+    const rawNextState = typeof value === 'function'
       ? (value as (prevState: AppState) => AppState)(stateRef.current)
       : value;
+    const nextState = reconcileAppState(rawNextState);
 
     const updatedAt = new Date().toISOString();
 

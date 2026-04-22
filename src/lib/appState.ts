@@ -1,4 +1,4 @@
-import { AppState, Ingredient } from '../types';
+import { AppState, Ingredient, ReadyStock, SellerStock } from '../types';
 
 function getCurrentMonth() {
   return new Date().toISOString().slice(0, 7);
@@ -22,10 +22,80 @@ function normalizeIngredient(item: Ingredient): Ingredient {
   };
 }
 
+function reconcileStocks(state: AppState) {
+  const readyStockMap = new Map<string, ReadyStock>();
+  const sellerStockMap = new Map<string, SellerStock>();
+
+  state.productions.forEach(item => {
+    const currentReady = readyStockMap.get(item.recipeId);
+    readyStockMap.set(item.recipeId, {
+      recipeId: item.recipeId,
+      recipeName: item.recipeName,
+      quantity: (currentReady?.quantity || 0) + item.quantity,
+    });
+
+    if (item.luizaQuantity > 0) {
+      const key = `${item.recipeId}:Luiza`;
+      const currentSeller = sellerStockMap.get(key);
+      sellerStockMap.set(key, {
+        recipeId: item.recipeId,
+        recipeName: item.recipeName,
+        seller: 'Luiza',
+        quantity: (currentSeller?.quantity || 0) + item.luizaQuantity,
+      });
+    }
+
+    if (item.priscilaQuantity > 0) {
+      const key = `${item.recipeId}:Priscila`;
+      const currentSeller = sellerStockMap.get(key);
+      sellerStockMap.set(key, {
+        recipeId: item.recipeId,
+        recipeName: item.recipeName,
+        seller: 'Priscila',
+        quantity: (currentSeller?.quantity || 0) + item.priscilaQuantity,
+      });
+    }
+  });
+
+  state.sales.forEach(item => {
+    const currentReady = readyStockMap.get(item.recipeId);
+    if (currentReady) {
+      readyStockMap.set(item.recipeId, {
+        ...currentReady,
+        quantity: Math.max(0, currentReady.quantity - item.quantity),
+      });
+    }
+
+    const sellerKey = `${item.recipeId}:${item.seller}`;
+    const currentSeller = sellerStockMap.get(sellerKey);
+    if (currentSeller) {
+      sellerStockMap.set(sellerKey, {
+        ...currentSeller,
+        quantity: Math.max(0, currentSeller.quantity - item.quantity),
+      });
+    }
+  });
+
+  return {
+    readyStock: Array.from(readyStockMap.values()).filter(item => item.quantity > 0),
+    sellerStock: Array.from(sellerStockMap.values()).filter(item => item.quantity > 0),
+  };
+}
+
+export function reconcileAppState(state: AppState): AppState {
+  const { readyStock, sellerStock } = reconcileStocks(state);
+
+  return {
+    ...state,
+    readyStock,
+    sellerStock,
+  };
+}
+
 export function normalizeAppState(value: unknown): AppState {
   const raw = (value && typeof value === 'object' ? value : {}) as Partial<AppState>;
 
-  return {
+  return reconcileAppState({
     ingredients: Array.isArray(raw.ingredients) ? raw.ingredients.map(item => normalizeIngredient(item as Ingredient)) : [],
     recipes: Array.isArray(raw.recipes) ? raw.recipes : [],
     sales: Array.isArray(raw.sales) ? raw.sales : [],
@@ -39,5 +109,5 @@ export function normalizeAppState(value: unknown): AppState {
           month: typeof raw.monthlyGoal.month === 'string' ? raw.monthlyGoal.month : getCurrentMonth(),
         }
       : INITIAL_STATE.monthlyGoal,
-  };
+  });
 }
