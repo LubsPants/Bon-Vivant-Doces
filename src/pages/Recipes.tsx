@@ -90,6 +90,84 @@ function getMeasureOptions(unit: Ingredient['unit']): MeasureOption[] {
   }
 }
 
+function parseLooseNumber(value: string) {
+  const normalized = value.replace(',', '.');
+  const parsed = parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseDisplayMeasureToQuantity(displayMeasure: string, unit: Ingredient['unit']) {
+  const normalized = displayMeasure.trim().toLowerCase();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const numberMatch = normalized.match(/(\d+(?:[.,]\d+)?)/);
+  const amount = numberMatch ? parseLooseNumber(numberMatch[1]) : null;
+
+  if (!amount) {
+    if ((normalized.includes('meia') || normalized.includes('1/2')) && normalized.includes('xic')) {
+      if (unit === 'g') return 100;
+      if (unit === 'kg') return 0.1;
+      if (unit === 'ml') return 100;
+      if (unit === 'L') return 0.1;
+    }
+
+    return null;
+  }
+
+  if (normalized.includes('colher') && normalized.includes('sopa')) {
+    if (unit === 'g') return amount * 15;
+    if (unit === 'kg') return (amount * 15) / 1000;
+    if (unit === 'ml') return amount * 15;
+    if (unit === 'L') return (amount * 15) / 1000;
+  }
+
+  if (normalized.includes('colher') && (normalized.includes('cha') || normalized.includes('chá'))) {
+    if (unit === 'g') return amount * 5;
+    if (unit === 'kg') return (amount * 5) / 1000;
+    if (unit === 'ml') return amount * 5;
+    if (unit === 'L') return (amount * 5) / 1000;
+  }
+
+  if (normalized.includes('xic')) {
+    if (normalized.includes('meia') || normalized.includes('1/2')) {
+      if (unit === 'g') return amount * 100;
+      if (unit === 'kg') return (amount * 100) / 1000;
+      if (unit === 'ml') return amount * 100;
+      if (unit === 'L') return (amount * 100) / 1000;
+    }
+
+    if (unit === 'g') return amount * 200;
+    if (unit === 'kg') return (amount * 200) / 1000;
+    if (unit === 'ml') return amount * 200;
+    if (unit === 'L') return (amount * 200) / 1000;
+  }
+
+  if (normalized.includes('ml')) {
+    if (unit === 'ml') return amount;
+    if (unit === 'L') return amount / 1000;
+  }
+
+  if (normalized.match(/\bg\b/)) {
+    if (unit === 'g') return amount;
+    if (unit === 'kg') return amount / 1000;
+  }
+
+  if (normalized.match(/\bl\b/)) {
+    if (unit === 'L') return amount;
+    if (unit === 'ml') return amount * 1000;
+  }
+
+  if (normalized.match(/\bkg\b/)) {
+    if (unit === 'kg') return amount;
+    if (unit === 'g') return amount * 1000;
+  }
+
+  return null;
+}
+
 function formatCurrency(value: number) {
   return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -173,18 +251,30 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
   ) => {
     const ingredient = state.ingredients.find(item => item.id === source.ingredientId);
 
-    if (!source.ingredientId || !source.quantity || !ingredient) {
+    if (!source.ingredientId || !ingredient) {
       return;
     }
 
-    const measureOptions = getMeasureOptions(ingredient.unit);
-    const selectedMeasure = measureOptions.find(option => option.id === source.measureUnit) ?? measureOptions[0];
-    const normalizedQuantity = parseFloat(source.quantity) * selectedMeasure.toBaseUnit;
+    let normalizedQuantity: number | null = null;
+    let generatedMeasure = source.displayMeasure.trim();
+
+    if (source.quantity) {
+      const measureOptions = getMeasureOptions(ingredient.unit);
+      const selectedMeasure = measureOptions.find(option => option.id === source.measureUnit) ?? measureOptions[0];
+      normalizedQuantity = parseFloat(source.quantity) * selectedMeasure.toBaseUnit;
+      generatedMeasure = generatedMeasure || `${source.quantity} ${selectedMeasure.label}`;
+    } else if (source.displayMeasure.trim()) {
+      normalizedQuantity = parseDisplayMeasureToQuantity(source.displayMeasure, ingredient.unit);
+    }
+
+    if (!normalizedQuantity || normalizedQuantity <= 0) {
+      return;
+    }
 
     onAdd({
       ingredientId: source.ingredientId,
       quantity: normalizedQuantity,
-      displayMeasure: source.displayMeasure.trim() || `${source.quantity} ${selectedMeasure.label}`,
+      displayMeasure: generatedMeasure,
     });
   };
 
@@ -455,6 +545,9 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
                 Custo do preparo: <strong>R$ {formatCurrency(calculatePreparationCost(preparationForm))}</strong>
                 {' '}| Custo por bolo: <strong>R$ {formatCurrency((calculatePreparationCost(preparationForm) || 0) / (parseFloat(preparationForm.yieldQuantity) || 1))}</strong>
               </div>
+              <p className="text-xs text-slate-500">
+                Se preferir, voce pode deixar `Qtd.` em branco e escrever algo como `5 colheres de sopa`, `150 ml` ou `1 xicara` na medida caseira.
+              </p>
 
               {preparationForm.ingredients.length > 0 && (
                 <div className="space-y-1">
@@ -698,6 +791,9 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
                     <Plus size={16} />
                     Adicionar ingrediente direto
                   </button>
+                  <p className="text-xs text-slate-500">
+                    Tambem vale preencher so a medida caseira. Exemplo: `5 colheres de sopa` sera convertido ao salvar.
+                  </p>
 
                   {recipeForm.ingredients.length > 0 && (
                     <div className="space-y-1">
