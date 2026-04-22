@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ProductionRecord, Recipe, ReadyStock, Ingredient, AppState, SellerStock } from '../types';
-import { Package, Plus, Calendar, ChefHat, Trash2 } from 'lucide-react';
+import { Package, Plus, Calendar, ChefHat, Trash2, Pencil } from 'lucide-react';
 import { getRecipeItemsCost } from '../utils/costs';
 
 interface ProductionPageProps {
@@ -10,6 +10,7 @@ interface ProductionPageProps {
 
 export function ProductionPage({ state, setState }: ProductionPageProps) {
   const [showProductionForm, setShowProductionForm] = useState(false);
+  const [editingProductionId, setEditingProductionId] = useState<string | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState('');
   const [productionQuantity, setProductionQuantity] = useState(1);
   const [luizaQuantity, setLuizaQuantity] = useState(0);
@@ -23,6 +24,16 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
   const ingredients: Ingredient[] = state.ingredients || [];
   const totalAllocated = luizaQuantity + priscilaQuantity;
   const remainingReadyStock = Math.max(0, productionQuantity - totalAllocated);
+
+  const resetProductionForm = () => {
+    setShowProductionForm(false);
+    setEditingProductionId(null);
+    setSelectedRecipe('');
+    setProductionQuantity(1);
+    setLuizaQuantity(0);
+    setPriscilaQuantity(0);
+    setProductionDate(new Date().toISOString().split('T')[0]);
+  };
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -122,11 +133,108 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
       };
     });
 
-    setShowProductionForm(false);
-    setSelectedRecipe('');
-    setProductionQuantity(1);
-    setLuizaQuantity(0);
-    setPriscilaQuantity(0);
+    resetProductionForm();
+  };
+
+  const startEditingProduction = (production: ProductionRecord) => {
+    setEditingProductionId(production.id);
+    setShowProductionForm(true);
+    setSelectedRecipe(production.recipeId);
+    setProductionQuantity(production.quantity);
+    setLuizaQuantity(production.luizaQuantity);
+    setPriscilaQuantity(production.priscilaQuantity);
+    setProductionDate(production.date);
+  };
+
+  const handleSaveProductionEdit = () => {
+    if (!editingProductionId || totalAllocated > productionQuantity) {
+      return;
+    }
+
+    setState(prev => {
+      const production = prev.productions.find(item => item.id === editingProductionId);
+
+      if (!production) {
+        return prev;
+      }
+
+      const newReadyQuantity = production.quantity - luizaQuantity - priscilaQuantity;
+      const oldReadyQuantity = production.quantity - production.luizaQuantity - production.priscilaQuantity;
+      const readyDelta = newReadyQuantity - oldReadyQuantity;
+      const luizaDelta = luizaQuantity - production.luizaQuantity;
+      const priscilaDelta = priscilaQuantity - production.priscilaQuantity;
+
+      let nextReadyStock = [...prev.readyStock];
+      const readyIndex = nextReadyStock.findIndex(item => item.recipeId === production.recipeId);
+
+      if (readyIndex >= 0) {
+        const nextQuantity = nextReadyStock[readyIndex].quantity + readyDelta;
+
+        if (nextQuantity > 0) {
+          nextReadyStock[readyIndex] = { ...nextReadyStock[readyIndex], quantity: nextQuantity };
+        } else {
+          nextReadyStock = nextReadyStock.filter((_, index) => index !== readyIndex);
+        }
+      } else if (newReadyQuantity > 0 && readyDelta > 0) {
+        nextReadyStock.push({
+          recipeId: production.recipeId,
+          recipeName: production.recipeName,
+          quantity: readyDelta,
+        });
+      }
+
+      let nextSellerStock = [...prev.sellerStock];
+
+      const updateSellerStock = (seller: 'Luiza' | 'Priscila', delta: number) => {
+        if (delta === 0) {
+          return;
+        }
+
+        const index = nextSellerStock.findIndex(
+          item => item.recipeId === production.recipeId && item.seller === seller
+        );
+
+        if (index >= 0) {
+          const nextQuantity = nextSellerStock[index].quantity + delta;
+
+          if (nextQuantity > 0) {
+            nextSellerStock[index] = { ...nextSellerStock[index], quantity: nextQuantity };
+          } else {
+            nextSellerStock = nextSellerStock.filter((_, itemIndex) => itemIndex !== index);
+          }
+          return;
+        }
+
+        if (delta > 0) {
+          nextSellerStock.push({
+            recipeId: production.recipeId,
+            recipeName: production.recipeName,
+            seller,
+            quantity: delta,
+          });
+        }
+      };
+
+      updateSellerStock('Luiza', luizaDelta);
+      updateSellerStock('Priscila', priscilaDelta);
+
+      return {
+        ...prev,
+        productions: prev.productions.map(item =>
+          item.id === editingProductionId
+            ? {
+                ...item,
+                luizaQuantity,
+                priscilaQuantity,
+              }
+            : item
+        ),
+        readyStock: nextReadyStock,
+        sellerStock: nextSellerStock,
+      };
+    });
+
+    resetProductionForm();
   };
 
   const getWeekDates = () => {
@@ -258,11 +366,18 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
           <p className="text-slate-500 text-sm">Controle de bolos prontos e insumos</p>
         </div>
         <button
-          onClick={() => setShowProductionForm(!showProductionForm)}
+          onClick={() => {
+            if (showProductionForm) {
+              resetProductionForm();
+              return;
+            }
+
+            setShowProductionForm(true);
+          }}
           className="flex items-center gap-2 px-4 py-2 bg-rose-500 text-white rounded-xl hover:bg-rose-600 transition-colors"
         >
           <Plus size={18} />
-          <span>Nova Produção</span>
+          <span>{editingProductionId ? 'Editando Produção' : 'Nova Produção'}</span>
         </button>
       </div>
 
@@ -270,7 +385,7 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-rose-100">
           <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
             <ChefHat size={20} className="text-rose-500" />
-            Registrar Produção
+            {editingProductionId ? 'Editar Saída da Produção' : 'Registrar Produção'}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
@@ -279,6 +394,7 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
                 className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
                 value={selectedRecipe}
                 onChange={e => setSelectedRecipe(e.target.value)}
+                disabled={Boolean(editingProductionId)}
               >
                 <option value="">Selecione...</option>
                 {recipes.map(r => (
@@ -294,6 +410,7 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
                 value={productionQuantity}
                 onChange={e => setProductionQuantity(parseInt(e.target.value) || 0)}
                 min="1"
+                disabled={Boolean(editingProductionId)}
               />
             </div>
             <div>
@@ -303,9 +420,15 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
                 className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
                 value={productionDate}
                 onChange={e => setProductionDate(e.target.value)}
+                disabled={Boolean(editingProductionId)}
               />
             </div>
           </div>
+          {editingProductionId && (
+            <div className="mt-4 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+              Aqui voce edita somente quanto a Luiza e a Priscila levaram dessa producao. A quantidade total produzida permanece a mesma.
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Luiza levou</label>
@@ -341,14 +464,14 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
           )}
           <div className="flex gap-2 mt-4">
             <button
-              onClick={handleAddProduction}
+              onClick={editingProductionId ? handleSaveProductionEdit : handleAddProduction}
               disabled={totalAllocated > productionQuantity}
               className="flex-1 py-2 bg-rose-500 disabled:bg-slate-300 text-white rounded-xl hover:bg-rose-600 transition-colors font-medium"
             >
-              Confirmar Produção
+              {editingProductionId ? 'Salvar Edicao' : 'Confirmar Produção'}
             </button>
             <button
-              onClick={() => setShowProductionForm(false)}
+              onClick={resetProductionForm}
               className="px-4 py-2 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-colors font-medium"
             >
               Cancelar
@@ -504,6 +627,14 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
                     <div className="text-lg font-bold text-rose-600">+{prod.quantity}</div>
                     <div className="text-xs text-slate-500">unidades</div>
                   </div>
+                  <button
+                    type="button"
+                    aria-label={`Editar producao de ${prod.recipeName}`}
+                    onClick={() => startEditingProduction(prod)}
+                    className="p-2 text-slate-400 hover:text-sky-500 transition-colors"
+                  >
+                    <Pencil size={16} />
+                  </button>
                   <button
                     type="button"
                     aria-label={`Excluir producao de ${prod.recipeName}`}
