@@ -1,3 +1,5 @@
+export type SellerName = 'Luiza' | 'Priscila';
+
 export interface Ingredient {
   id: string;
   name: string;
@@ -30,6 +32,8 @@ export interface ProductionRecord {
   recipeId: string;
   recipeName: string;
   quantity: number;
+  luizaQuantity: number;
+  priscilaQuantity: number;
   date: string;
   createdAt: string;
 }
@@ -38,7 +42,7 @@ export interface Sale {
   id: string;
   recipeId: string;
   recipeName: string;
-  seller: 'Luiza' | 'Priscila';
+  seller: SellerName;
   date: string;
   price: number;
   quantity: number;
@@ -49,7 +53,7 @@ export interface Reservation {
   customerName: string;
   recipeId: string;
   recipeName: string;
-  seller: 'Luiza' | 'Priscila';
+  seller: SellerName;
   date: string;
   price: number;
   quantity: number;
@@ -58,6 +62,13 @@ export interface Reservation {
 export interface ReadyStock {
   recipeId: string;
   recipeName: string;
+  quantity: number;
+}
+
+export interface SellerStock {
+  recipeId: string;
+  recipeName: string;
+  seller: SellerName;
   quantity: number;
 }
 
@@ -73,5 +84,6 @@ export interface AppState {
   reservations: Reservation[];
   productions: ProductionRecord[];
   readyStock: ReadyStock[];
+  sellerStock: SellerStock[];
   monthlyGoal: MonthlyGoal;
 }

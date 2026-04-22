@@ -97,11 +97,14 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
       readyStock: prev.readyStock.map(item =>
         item.recipeId === recipe.id ? { ...item, recipeName: recipe.name } : item
       ),
+      sellerStock: prev.sellerStock.map(item =>
+        item.recipeId === recipe.id ? { ...item, recipeName: recipe.name } : item
+      ),
       sales: prev.sales.map(item =>
-        item.recipeId === recipe.id ? { ...item, recipeName: recipe.name, price: recipe.salePrice } : item
+        item.recipeId === recipe.id ? { ...item, recipeName: recipe.name } : item
       ),
       reservations: prev.reservations.map(item =>
-        item.recipeId === recipe.id ? { ...item, recipeName: recipe.name, price: recipe.salePrice } : item
+        item.recipeId === recipe.id ? { ...item, recipeName: recipe.name } : item
       ),
       productions: prev.productions.map(item =>
         item.recipeId === recipe.id ? { ...item, recipeName: recipe.name } : item
@@ -128,7 +131,10 @@ export const RecipesPage: React.FC<RecipesPageProps> = ({ state, setState }) => 
       ...prev,
       recipes: prev.recipes.filter(item => item.id !== id),
       readyStock: prev.readyStock.filter(item => item.recipeId !== id),
+      sellerStock: prev.sellerStock.filter(item => item.recipeId !== id),
+      sales: prev.sales.filter(item => item.recipeId !== id),
       reservations: prev.reservations.filter(item => item.recipeId !== id),
+      productions: prev.productions.filter(item => item.recipeId !== id),
     }));
 
     if (editingId === id) {

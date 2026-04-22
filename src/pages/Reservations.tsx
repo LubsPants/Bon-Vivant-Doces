@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Bookmark, Calendar, CheckCircle2, Trash2, User } from 'lucide-react';
 import { AppState, Reservation, Sale } from '../types';
+import { getSellerPrice } from '../lib/sales';
 
 interface ReservationsPageProps {
   state: AppState;
@@ -38,7 +39,7 @@ export const ReservationsPage: React.FC<ReservationsPageProps> = ({ state, setSt
       recipeName: recipe.name,
       seller: reservationData.seller,
       date: new Date().toISOString(),
-      price: recipe.salePrice,
+      price: getSellerPrice(reservationData.seller),
       quantity: reservationData.quantity,
     };
 

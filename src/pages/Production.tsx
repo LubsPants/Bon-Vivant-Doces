@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ProductionRecord, Recipe, ReadyStock, Ingredient, AppState } from '../types';
+import { ProductionRecord, Recipe, ReadyStock, Ingredient, AppState, SellerStock } from '../types';
 import { Package, Plus, Calendar, ChefHat, Trash2 } from 'lucide-react';
 import { getRecipeItemsCost } from '../utils/costs';
 
@@ -12,12 +12,17 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
   const [showProductionForm, setShowProductionForm] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState('');
   const [productionQuantity, setProductionQuantity] = useState(1);
+  const [luizaQuantity, setLuizaQuantity] = useState(0);
+  const [priscilaQuantity, setPriscilaQuantity] = useState(0);
   const [productionDate, setProductionDate] = useState(new Date().toISOString().split('T')[0]);
 
   const recipes: Recipe[] = state.recipes || [];
   const productions: ProductionRecord[] = state.productions || [];
   const readyStock: ReadyStock[] = state.readyStock || [];
+  const sellerStock: SellerStock[] = state.sellerStock || [];
   const ingredients: Ingredient[] = state.ingredients || [];
+  const totalAllocated = luizaQuantity + priscilaQuantity;
+  const remainingReadyStock = Math.max(0, productionQuantity - totalAllocated);
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -31,7 +36,7 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
   };
 
   const handleAddProduction = () => {
-    if (!selectedRecipe || productionQuantity <= 0) return;
+    if (!selectedRecipe || productionQuantity <= 0 || totalAllocated > productionQuantity) return;
     
     const recipe = recipes.find(r => r.id === selectedRecipe);
     if (!recipe) return;
@@ -41,6 +46,8 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
       recipeId: recipe.id,
       recipeName: recipe.name,
       quantity: productionQuantity,
+      luizaQuantity,
+      priscilaQuantity,
       date: productionDate,
       createdAt: new Date().toISOString()
     };
@@ -76,29 +83,50 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
       });
 
       const existingStock = prev.readyStock.find(rs => rs.recipeId === recipe.id);
-      let newReadyStock: ReadyStock[];
-      
-      if (existingStock) {
-        newReadyStock = prev.readyStock.map(rs => 
-          rs.recipeId === recipe.id 
-            ? { ...rs, quantity: rs.quantity + productionQuantity }
-            : rs
-        );
-      } else {
-        newReadyStock = [...prev.readyStock, { recipeId: recipe.id, recipeName: recipe.name, quantity: productionQuantity }];
+      const newReadyStock: ReadyStock[] = remainingReadyStock > 0
+        ? existingStock
+          ? prev.readyStock.map(rs =>
+              rs.recipeId === recipe.id
+                ? { ...rs, quantity: rs.quantity + remainingReadyStock }
+                : rs
+            )
+          : [...prev.readyStock, { recipeId: recipe.id, recipeName: recipe.name, quantity: remainingReadyStock }]
+        : prev.readyStock;
+
+      const nextSellerStock = [...prev.sellerStock];
+
+      if (luizaQuantity > 0) {
+        const luizaIndex = nextSellerStock.findIndex(item => item.recipeId === recipe.id && item.seller === 'Luiza');
+        if (luizaIndex >= 0) {
+          nextSellerStock[luizaIndex] = { ...nextSellerStock[luizaIndex], quantity: nextSellerStock[luizaIndex].quantity + luizaQuantity };
+        } else {
+          nextSellerStock.push({ recipeId: recipe.id, recipeName: recipe.name, seller: 'Luiza', quantity: luizaQuantity });
+        }
+      }
+
+      if (priscilaQuantity > 0) {
+        const priscilaIndex = nextSellerStock.findIndex(item => item.recipeId === recipe.id && item.seller === 'Priscila');
+        if (priscilaIndex >= 0) {
+          nextSellerStock[priscilaIndex] = { ...nextSellerStock[priscilaIndex], quantity: nextSellerStock[priscilaIndex].quantity + priscilaQuantity };
+        } else {
+          nextSellerStock.push({ recipeId: recipe.id, recipeName: recipe.name, seller: 'Priscila', quantity: priscilaQuantity });
+        }
       }
 
       return {
         ...prev,
         ingredients: updatedIngredients,
         productions: [newProduction, ...prev.productions],
-        readyStock: newReadyStock
+        readyStock: newReadyStock,
+        sellerStock: nextSellerStock,
       };
     });
 
     setShowProductionForm(false);
     setSelectedRecipe('');
     setProductionQuantity(1);
+    setLuizaQuantity(0);
+    setPriscilaQuantity(0);
   };
 
   const getWeekDates = () => {
@@ -126,6 +154,12 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
     return readyStock.reduce((sum, rs) => sum + rs.quantity, 0);
   };
 
+  const getSellerTotal = (seller: 'Luiza' | 'Priscila') => {
+    return sellerStock
+      .filter(item => item.seller === seller)
+      .reduce((sum, item) => sum + item.quantity, 0);
+  };
+
   const handleDeleteReadyStock = (recipeId: string) => {
     setState(prev => ({
       ...prev,
@@ -145,9 +179,27 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
       const restoredStock = prev.readyStock
         .map(item =>
           item.recipeId === production.recipeId
-            ? { ...item, quantity: Math.max(0, item.quantity - production.quantity) }
+            ? { ...item, quantity: Math.max(0, item.quantity - (production.quantity - production.luizaQuantity - production.priscilaQuantity)) }
             : item
         )
+        .filter(item => item.quantity > 0);
+
+      const restoredSellerStock = prev.sellerStock
+        .map(item => {
+          if (item.recipeId !== production.recipeId) {
+            return item;
+          }
+
+          if (item.seller === 'Luiza') {
+            return { ...item, quantity: Math.max(0, item.quantity - production.luizaQuantity) };
+          }
+
+          if (item.seller === 'Priscila') {
+            return { ...item, quantity: Math.max(0, item.quantity - production.priscilaQuantity) };
+          }
+
+          return item;
+        })
         .filter(item => item.quantity > 0);
 
       if (!recipe) {
@@ -155,6 +207,7 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
           ...prev,
           productions: prev.productions.filter(item => item.id !== productionId),
           readyStock: restoredStock,
+          sellerStock: restoredSellerStock,
         };
       }
 
@@ -192,6 +245,7 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
         ingredients: restoredIngredients,
         productions: prev.productions.filter(item => item.id !== productionId),
         readyStock: restoredStock,
+        sellerStock: restoredSellerStock,
       };
     });
   };
@@ -252,10 +306,44 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
               />
             </div>
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Luiza levou</label>
+              <input
+                type="number"
+                min="0"
+                className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
+                value={luizaQuantity}
+                onChange={e => setLuizaQuantity(parseInt(e.target.value, 10) || 0)}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Priscila levou</label>
+              <input
+                type="number"
+                min="0"
+                className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
+                value={priscilaQuantity}
+                onChange={e => setPriscilaQuantity(parseInt(e.target.value, 10) || 0)}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Fica no estoque geral</label>
+              <div className="w-full p-2 rounded-lg bg-slate-100 text-slate-700 font-semibold">
+                {remainingReadyStock} unidades
+              </div>
+            </div>
+          </div>
+          {totalAllocated > productionQuantity && (
+            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              A soma do que Luiza e Priscila levaram nao pode ser maior que a quantidade produzida.
+            </div>
+          )}
           <div className="flex gap-2 mt-4">
             <button
               onClick={handleAddProduction}
-              className="flex-1 py-2 bg-rose-500 text-white rounded-xl hover:bg-rose-600 transition-colors font-medium"
+              disabled={totalAllocated > productionQuantity}
+              className="flex-1 py-2 bg-rose-500 disabled:bg-slate-300 text-white rounded-xl hover:bg-rose-600 transition-colors font-medium"
             >
               Confirmar Produção
             </button>
@@ -269,7 +357,7 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-5 rounded-3xl shadow-sm border border-amber-100">
           <div className="flex items-center gap-2 text-amber-600 mb-2">
             <div className="p-1.5 bg-amber-100 rounded-lg">
@@ -290,6 +378,16 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
           </div>
           <div className="text-3xl font-black text-emerald-700">{getTotalProduced()}</div>
           <div className="text-xs text-emerald-600 mt-1">bolos produzidos</div>
+        </div>
+        <div className="bg-gradient-to-br from-fuchsia-50 to-pink-50 p-5 rounded-3xl shadow-sm border border-fuchsia-100">
+          <div className="text-xs font-semibold uppercase tracking-wide text-fuchsia-600 mb-2">Com Luiza</div>
+          <div className="text-3xl font-black text-fuchsia-700">{getSellerTotal('Luiza')}</div>
+          <div className="text-xs text-fuchsia-600 mt-1">unidades para vender</div>
+        </div>
+        <div className="bg-gradient-to-br from-cyan-50 to-sky-50 p-5 rounded-3xl shadow-sm border border-cyan-100">
+          <div className="text-xs font-semibold uppercase tracking-wide text-cyan-600 mb-2">Com Priscila</div>
+          <div className="text-3xl font-black text-cyan-700">{getSellerTotal('Priscila')}</div>
+          <div className="text-xs text-cyan-600 mt-1">unidades para vender</div>
         </div>
       </div>
 
@@ -363,6 +461,28 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
       </div>
 
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+        <h2 className="text-lg font-bold text-slate-800 mb-4">Bolos com Cada Uma</h2>
+        {sellerStock.length === 0 ? (
+          <p className="text-slate-400 text-sm text-center py-4">Nenhum bolo separado para venda.</p>
+        ) : (
+          <div className="space-y-2">
+            {sellerStock.map(item => (
+              <div key={`${item.recipeId}-${item.seller}`} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
+                <div>
+                  <div className="font-semibold text-slate-800">{item.recipeName}</div>
+                  <div className="text-xs text-slate-500">{item.seller}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-rose-600">{item.quantity}</div>
+                  <div className="text-xs text-slate-500">unidades</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
         <h2 className="text-lg font-bold text-slate-800 mb-4">Histórico de Produção</h2>
         {productions.length === 0 ? (
           <p className="text-slate-400 text-sm text-center py-4">Nenhuma produção registrada</p>
@@ -374,6 +494,9 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
                   <div className="font-semibold text-slate-800">{prod.recipeName}</div>
                   <div className="text-xs text-slate-500">
                     {new Date(prod.date).toLocaleDateString('pt-BR')}
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Luiza: {prod.luizaQuantity} • Priscila: {prod.priscilaQuantity} • Estoque geral: {prod.quantity - prod.luizaQuantity - prod.priscilaQuantity}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
