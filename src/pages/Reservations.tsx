@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Bookmark, Calendar, CheckCircle2, Trash2, User } from 'lucide-react';
 import { AppState, Reservation, Sale } from '../types';
 import { getSellerPrice } from '../lib/sales';
+import { getAvailableReadyStock, getAvailableReadyStockItem } from '../lib/stock';
 
 interface ReservationsPageProps {
   state: AppState;
@@ -16,7 +17,8 @@ export const ReservationsPage: React.FC<ReservationsPageProps> = ({ state, setSt
     quantity: 1,
   });
 
-  const selectedReadyStock = state.readyStock.find(item => item.recipeId === reservationData.recipeId);
+  const availableReadyStock = getAvailableReadyStock(state);
+  const selectedReadyStock = getAvailableReadyStockItem(state, reservationData.recipeId);
   const hasEnoughStock = !reservationData.recipeId
     || (selectedReadyStock ? selectedReadyStock.quantity >= reservationData.quantity : false);
 
@@ -26,7 +28,7 @@ export const ReservationsPage: React.FC<ReservationsPageProps> = ({ state, setSt
     }
 
     const recipe = state.recipes.find(item => item.id === reservationData.recipeId);
-    const readyStockItem = state.readyStock.find(item => item.recipeId === reservationData.recipeId);
+    const readyStockItem = getAvailableReadyStockItem(state, reservationData.recipeId);
 
     if (!recipe || !readyStockItem || readyStockItem.quantity < reservationData.quantity) {
       return;
@@ -46,13 +48,6 @@ export const ReservationsPage: React.FC<ReservationsPageProps> = ({ state, setSt
     setState(prev => ({
       ...prev,
       reservations: [reservation, ...prev.reservations],
-      readyStock: prev.readyStock
-        .map(item =>
-          item.recipeId === reservation.recipeId
-            ? { ...item, quantity: Math.max(0, item.quantity - reservation.quantity) }
-            : item
-        )
-        .filter(item => item.quantity > 0),
     }));
 
     setReservationData({
@@ -97,26 +92,9 @@ export const ReservationsPage: React.FC<ReservationsPageProps> = ({ state, setSt
         return prev;
       }
 
-      const existingReadyStock = prev.readyStock.find(item => item.recipeId === reservation.recipeId);
-      const updatedReadyStock = existingReadyStock
-        ? prev.readyStock.map(item =>
-            item.recipeId === reservation.recipeId
-              ? { ...item, quantity: item.quantity + reservation.quantity }
-              : item
-          )
-        : [
-            ...prev.readyStock,
-            {
-              recipeId: reservation.recipeId,
-              recipeName: reservation.recipeName,
-              quantity: reservation.quantity,
-            },
-          ];
-
       return {
         ...prev,
         reservations: prev.reservations.filter(item => item.id !== reservationId),
-        readyStock: updatedReadyStock,
       };
     });
   };
@@ -150,8 +128,7 @@ export const ReservationsPage: React.FC<ReservationsPageProps> = ({ state, setSt
               onChange={e => setReservationData({ ...reservationData, recipeId: e.target.value })}
             >
               <option value="">Selecione o sabor...</option>
-              {state.readyStock
-                .filter(item => item.quantity > 0)
+              {availableReadyStock
                 .map(item => {
                   const recipe = state.recipes.find(recipeItem => recipeItem.id === item.recipeId);
 

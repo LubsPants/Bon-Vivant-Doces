@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ProductionRecord, Recipe, ReadyStock, Ingredient, AppState, SellerStock } from '../types';
 import { Package, Plus, Calendar, ChefHat, Trash2, Pencil } from 'lucide-react';
 import { getRecipeItemsCost } from '../utils/costs';
+import { getAvailableReadyStock, getAvailableSellerStock } from '../lib/stock';
 
 interface ProductionPageProps {
   state: AppState;
@@ -20,7 +21,10 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
   const recipes: Recipe[] = state.recipes || [];
   const productions: ProductionRecord[] = state.productions || [];
   const readyStock: ReadyStock[] = state.readyStock || [];
+  const availableReadyStock = getAvailableReadyStock(state);
   const sellerStock: SellerStock[] = state.sellerStock || [];
+  const availableLuizaStock = getAvailableSellerStock(state, 'Luiza');
+  const availablePriscilaStock = getAvailableSellerStock(state, 'Priscila');
   const ingredients: Ingredient[] = state.ingredients || [];
   const totalAllocated = luizaQuantity + priscilaQuantity;
   const remainingReadyStock = Math.max(0, productionQuantity - totalAllocated);
@@ -289,10 +293,15 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
   };
 
   const getTotalReadyStock = () => {
-    return readyStock.reduce((sum, rs) => sum + rs.quantity, 0);
+    return availableReadyStock.reduce((sum, rs) => sum + rs.quantity, 0);
   };
 
   const getSellerTotal = (seller: 'Luiza' | 'Priscila') => {
+    return getAvailableSellerStock(state, seller)
+      .reduce((sum, item) => sum + item.quantity, 0);
+  };
+
+  const getRawSellerTotal = (seller: 'Luiza' | 'Priscila') => {
     return sellerStock
       .filter(item => item.seller === seller)
       .reduce((sum, item) => sum + item.quantity, 0);
@@ -533,11 +542,13 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
           <div className="text-xs font-semibold uppercase tracking-wide text-fuchsia-600 mb-2">Com Luiza</div>
           <div className="text-3xl font-black text-fuchsia-700">{getSellerTotal('Luiza')}</div>
           <div className="text-xs text-fuchsia-600 mt-1">unidades para vender</div>
+          <div className="text-[10px] text-fuchsia-500 mt-1">bruto: {getRawSellerTotal('Luiza')}</div>
         </div>
         <div className="bg-gradient-to-br from-cyan-50 to-sky-50 p-5 rounded-3xl shadow-sm border border-cyan-100">
           <div className="text-xs font-semibold uppercase tracking-wide text-cyan-600 mb-2">Com Priscila</div>
           <div className="text-3xl font-black text-cyan-700">{getSellerTotal('Priscila')}</div>
           <div className="text-xs text-cyan-600 mt-1">unidades para vender</div>
+          <div className="text-[10px] text-cyan-500 mt-1">bruto: {getRawSellerTotal('Priscila')}</div>
         </div>
       </div>
 
@@ -546,11 +557,11 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
           <Package size={20} className="text-rose-500" />
           Estoque de Bolos Prontos
         </h2>
-        {readyStock.length === 0 ? (
+        {availableReadyStock.length === 0 ? (
           <p className="text-slate-400 text-sm text-center py-4">Nenhum bolo pronto no estoque</p>
         ) : (
           <div className="space-y-2">
-            {readyStock.map(rs => {
+            {availableReadyStock.map(rs => {
               const recipe = recipes.find(r => r.id === rs.recipeId);
               return (
                 <div key={rs.recipeId} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
@@ -612,22 +623,50 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
 
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
         <h2 className="text-lg font-bold text-slate-800 mb-4">Bolos com Cada Uma</h2>
-        {sellerStock.length === 0 ? (
+        {availableLuizaStock.length === 0 && availablePriscilaStock.length === 0 ? (
           <p className="text-slate-400 text-sm text-center py-4">Nenhum bolo separado para venda.</p>
         ) : (
-          <div className="space-y-2">
-            {sellerStock.map(item => (
-              <div key={`${item.recipeId}-${item.seller}`} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
-                <div>
-                  <div className="font-semibold text-slate-800">{item.recipeName}</div>
-                  <div className="text-xs text-slate-500">{item.seller}</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-bold text-rose-600">{item.quantity}</div>
-                  <div className="text-xs text-slate-500">unidades</div>
-                </div>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-fuchsia-700 mb-2">Estoque da Luiza</h3>
+              <div className="space-y-2">
+                {availableLuizaStock.length === 0 && (
+                  <p className="text-sm text-slate-400">Nenhum bolo com a Luiza.</p>
+                )}
+                {availableLuizaStock.map(item => (
+                  <div key={`${item.recipeId}-${item.seller}`} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
+                    <div>
+                      <div className="font-semibold text-slate-800">{item.recipeName}</div>
+                      <div className="text-xs text-slate-500">Luiza</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-rose-600">{item.quantity}</div>
+                      <div className="text-xs text-slate-500">unidades</div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-cyan-700 mb-2">Estoque da Priscila</h3>
+              <div className="space-y-2">
+                {availablePriscilaStock.length === 0 && (
+                  <p className="text-sm text-slate-400">Nenhum bolo com a Priscila.</p>
+                )}
+                {availablePriscilaStock.map(item => (
+                  <div key={`${item.recipeId}-${item.seller}`} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
+                    <div>
+                      <div className="font-semibold text-slate-800">{item.recipeName}</div>
+                      <div className="text-xs text-slate-500">Priscila</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold text-rose-600">{item.quantity}</div>
+                      <div className="text-xs text-slate-500">unidades</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>

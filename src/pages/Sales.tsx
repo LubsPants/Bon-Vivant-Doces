@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ShoppingBag, User, Calendar, Trash2 } from 'lucide-react';
 import { Sale, AppState } from '../types';
 import { getSellerPrice } from '../lib/sales';
+import { getAvailableReadyStock, getAvailableReadyStockItem, getAvailableSellerStock, getAvailableSellerStockItem } from '../lib/stock';
 
 interface SalesPageProps {
   state: AppState;
@@ -15,20 +16,22 @@ export const SalesPage: React.FC<SalesPageProps> = ({ state, setState }) => {
     quantity: 1,
   });
 
-  const availableReadyStock = state.readyStock.filter(item => item.quantity > 0);
-  const selectedSellerStock = state.sellerStock.find(
-    item => item.recipeId === saleData.recipeId && item.seller === saleData.seller
+  const availableReadyStock = getAvailableReadyStock(state);
+  const availableSellerStock = getAvailableSellerStock(state, saleData.seller);
+  const selectedSellerStock = getAvailableSellerStockItem(state, saleData.seller, saleData.recipeId);
+  const selectedReadyStock = getAvailableReadyStockItem(state, saleData.recipeId);
+  const hasEnoughStock = !saleData.recipeId || (
+    (selectedReadyStock ? selectedReadyStock.quantity >= saleData.quantity : false)
+    && (selectedSellerStock ? selectedSellerStock.quantity >= saleData.quantity : false)
   );
-  const selectedReadyStock = state.readyStock.find(item => item.recipeId === saleData.recipeId);
-  const hasEnoughStock = !saleData.recipeId
-    || (selectedReadyStock ? selectedReadyStock.quantity >= saleData.quantity : false);
 
   const recordSale = () => {
     if (!saleData.recipeId || saleData.quantity <= 0) return;
 
     const recipe = state.recipes.find(r => r.id === saleData.recipeId);
-    const readyStockItem = state.readyStock.find(item => item.recipeId === saleData.recipeId);
-    if (!recipe || !readyStockItem || readyStockItem.quantity < saleData.quantity) return;
+    const readyStockItem = getAvailableReadyStockItem(state, saleData.recipeId);
+    const sellerStockItem = getAvailableSellerStockItem(state, saleData.seller, saleData.recipeId);
+    if (!recipe || !readyStockItem || readyStockItem.quantity < saleData.quantity || !sellerStockItem || sellerStockItem.quantity < saleData.quantity) return;
 
     const sale: Sale = {
       id: crypto.randomUUID(),
@@ -138,7 +141,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({ state, setState }) => {
               onChange={e => setSaleData({...saleData, recipeId: e.target.value})}
             >
               <option value="">Selecione o sabor...</option>
-              {availableReadyStock
+              {availableSellerStock
                 .map(item => {
                   const recipe = state.recipes.find(recipeItem => recipeItem.id === item.recipeId);
 
@@ -148,7 +151,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({ state, setState }) => {
 
                   return (
                     <option key={recipe.id} value={recipe.id}>
-                      {recipe.name} - R$ {getSellerPrice(saleData.seller).toFixed(2)} • {item.quantity} no estoque pronto
+                      {recipe.name} - R$ {getSellerPrice(saleData.seller).toFixed(2)} • {item.quantity} com {saleData.seller}
                     </option>
                   );
                 })}
@@ -191,7 +194,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({ state, setState }) => {
             <div className={`rounded-2xl border px-4 py-3 text-sm ${hasEnoughStock ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
               {hasEnoughStock
                 ? `Estoque pronto total: ${selectedReadyStock?.quantity ?? 0}. Controle com ${saleData.seller}: ${selectedSellerStock?.quantity ?? 0}.`
-                : `Estoque insuficiente no estoque pronto. Disponivel agora: ${selectedReadyStock?.quantity ?? 0}.`}
+                : `Estoque insuficiente. Pronto: ${selectedReadyStock?.quantity ?? 0}. Com ${saleData.seller}: ${selectedSellerStock?.quantity ?? 0}.`}
             </div>
           )}
 
