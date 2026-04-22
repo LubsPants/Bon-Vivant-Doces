@@ -76,10 +76,28 @@ export const ReservationsPage: React.FC<ReservationsPageProps> = ({ state, setSt
         quantity: reservation.quantity,
       };
 
+      const updatedReadyStock = prev.readyStock
+        .map(item =>
+          item.recipeId === reservation.recipeId
+            ? { ...item, quantity: Math.max(0, item.quantity - reservation.quantity) }
+            : item
+        )
+        .filter(item => item.quantity > 0);
+
+      const updatedSellerStock = prev.sellerStock
+        .map(item =>
+          item.recipeId === reservation.recipeId && item.seller === reservation.seller
+            ? { ...item, quantity: Math.max(0, item.quantity - reservation.quantity) }
+            : item
+        )
+        .filter(item => item.quantity > 0);
+
       return {
         ...prev,
         reservations: prev.reservations.filter(item => item.id !== reservationId),
         sales: [sale, ...prev.sales],
+        readyStock: updatedReadyStock,
+        sellerStock: updatedSellerStock,
       };
     });
   };
