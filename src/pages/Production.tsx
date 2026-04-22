@@ -46,6 +46,79 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
     return ingredientsCost + packagingCost;
   };
 
+  const applyProductionToState = (
+    prev: AppState,
+    recipe: Recipe,
+    quantity: number,
+    luizaPortion: number,
+    priscilaPortion: number
+  ) => {
+    const consumptionMap = new Map<string, number>();
+
+    recipe.ingredients.forEach(ri => {
+      consumptionMap.set(
+        ri.ingredientId,
+        (consumptionMap.get(ri.ingredientId) || 0) + (ri.quantity * quantity)
+      );
+    });
+
+    recipe.packaging.forEach(ri => {
+      consumptionMap.set(
+        ri.ingredientId,
+        (consumptionMap.get(ri.ingredientId) || 0) + (ri.quantity * quantity)
+      );
+    });
+
+    const updatedIngredients = prev.ingredients.map(ing => {
+      const consumedQuantity = consumptionMap.get(ing.id) || 0;
+
+      if (consumedQuantity === 0) {
+        return ing;
+      }
+
+      return {
+        ...ing,
+        currentStock: Math.max(0, ing.currentStock - consumedQuantity),
+      };
+    });
+
+    const existingStock = prev.readyStock.find(rs => rs.recipeId === recipe.id);
+    const newReadyStock: ReadyStock[] = existingStock
+      ? prev.readyStock.map(rs =>
+          rs.recipeId === recipe.id
+            ? { ...rs, quantity: rs.quantity + quantity }
+            : rs
+        )
+      : [...prev.readyStock, { recipeId: recipe.id, recipeName: recipe.name, quantity }];
+
+    const nextSellerStock = [...prev.sellerStock];
+
+    if (luizaPortion > 0) {
+      const luizaIndex = nextSellerStock.findIndex(item => item.recipeId === recipe.id && item.seller === 'Luiza');
+      if (luizaIndex >= 0) {
+        nextSellerStock[luizaIndex] = { ...nextSellerStock[luizaIndex], quantity: nextSellerStock[luizaIndex].quantity + luizaPortion };
+      } else {
+        nextSellerStock.push({ recipeId: recipe.id, recipeName: recipe.name, seller: 'Luiza', quantity: luizaPortion });
+      }
+    }
+
+    if (priscilaPortion > 0) {
+      const priscilaIndex = nextSellerStock.findIndex(item => item.recipeId === recipe.id && item.seller === 'Priscila');
+      if (priscilaIndex >= 0) {
+        nextSellerStock[priscilaIndex] = { ...nextSellerStock[priscilaIndex], quantity: nextSellerStock[priscilaIndex].quantity + priscilaPortion };
+      } else {
+        nextSellerStock.push({ recipeId: recipe.id, recipeName: recipe.name, seller: 'Priscila', quantity: priscilaPortion });
+      }
+    }
+
+    return {
+      ...prev,
+      ingredients: updatedIngredients,
+      readyStock: newReadyStock,
+      sellerStock: nextSellerStock,
+    };
+  };
+
   const handleAddProduction = () => {
     if (!selectedRecipe || productionQuantity <= 0 || totalAllocated > productionQuantity) return;
     
@@ -64,70 +137,11 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
     };
 
     setState(prev => {
-      const consumptionMap = new Map<string, number>();
-
-      recipe.ingredients.forEach(ri => {
-        consumptionMap.set(
-          ri.ingredientId,
-          (consumptionMap.get(ri.ingredientId) || 0) + (ri.quantity * productionQuantity)
-        );
-      });
-
-      recipe.packaging.forEach(ri => {
-        consumptionMap.set(
-          ri.ingredientId,
-          (consumptionMap.get(ri.ingredientId) || 0) + (ri.quantity * productionQuantity)
-        );
-      });
-
-      const updatedIngredients = prev.ingredients.map(ing => {
-        const consumedQuantity = consumptionMap.get(ing.id) || 0;
-
-        if (consumedQuantity === 0) {
-          return ing;
-        }
-
-        return {
-          ...ing,
-          currentStock: Math.max(0, ing.currentStock - consumedQuantity),
-        };
-      });
-
-      const existingStock = prev.readyStock.find(rs => rs.recipeId === recipe.id);
-      const newReadyStock: ReadyStock[] = existingStock
-        ? prev.readyStock.map(rs =>
-            rs.recipeId === recipe.id
-              ? { ...rs, quantity: rs.quantity + productionQuantity }
-              : rs
-          )
-        : [...prev.readyStock, { recipeId: recipe.id, recipeName: recipe.name, quantity: productionQuantity }];
-
-      const nextSellerStock = [...prev.sellerStock];
-
-      if (luizaQuantity > 0) {
-        const luizaIndex = nextSellerStock.findIndex(item => item.recipeId === recipe.id && item.seller === 'Luiza');
-        if (luizaIndex >= 0) {
-          nextSellerStock[luizaIndex] = { ...nextSellerStock[luizaIndex], quantity: nextSellerStock[luizaIndex].quantity + luizaQuantity };
-        } else {
-          nextSellerStock.push({ recipeId: recipe.id, recipeName: recipe.name, seller: 'Luiza', quantity: luizaQuantity });
-        }
-      }
-
-      if (priscilaQuantity > 0) {
-        const priscilaIndex = nextSellerStock.findIndex(item => item.recipeId === recipe.id && item.seller === 'Priscila');
-        if (priscilaIndex >= 0) {
-          nextSellerStock[priscilaIndex] = { ...nextSellerStock[priscilaIndex], quantity: nextSellerStock[priscilaIndex].quantity + priscilaQuantity };
-        } else {
-          nextSellerStock.push({ recipeId: recipe.id, recipeName: recipe.name, seller: 'Priscila', quantity: priscilaQuantity });
-        }
-      }
+      const nextState = applyProductionToState(prev, recipe, productionQuantity, luizaQuantity, priscilaQuantity);
 
       return {
-        ...prev,
-        ingredients: updatedIngredients,
-        productions: [newProduction, ...prev.productions],
-        readyStock: newReadyStock,
-        sellerStock: nextSellerStock,
+        ...nextState,
+        productions: [newProduction, ...nextState.productions],
       };
     });
 
@@ -145,67 +159,108 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
   };
 
   const handleSaveProductionEdit = () => {
-    if (!editingProductionId || totalAllocated > productionQuantity) {
+    if (!editingProductionId || !selectedRecipe || productionQuantity <= 0 || totalAllocated > productionQuantity) {
       return;
     }
 
     setState(prev => {
       const production = prev.productions.find(item => item.id === editingProductionId);
+      const nextRecipe = prev.recipes.find(item => item.id === selectedRecipe);
 
-      if (!production) {
+      if (!production || !nextRecipe) {
         return prev;
       }
 
-      const luizaDelta = luizaQuantity - production.luizaQuantity;
-      const priscilaDelta = priscilaQuantity - production.priscilaQuantity;
+      const originalRecipe = prev.recipes.find(item => item.id === production.recipeId);
+      let revertedState = { ...prev };
 
-      let nextSellerStock = [...prev.sellerStock];
+      if (originalRecipe) {
+        const restoredStock = revertedState.readyStock
+          .map(item =>
+            item.recipeId === production.recipeId
+              ? { ...item, quantity: Math.max(0, item.quantity - production.quantity) }
+              : item
+          )
+          .filter(item => item.quantity > 0);
 
-      const updateSellerStock = (seller: 'Luiza' | 'Priscila', delta: number) => {
-        if (delta === 0) {
-          return;
-        }
+        const restoredSellerStock = revertedState.sellerStock
+          .map(item => {
+            if (item.recipeId !== production.recipeId) {
+              return item;
+            }
 
-        const index = nextSellerStock.findIndex(
-          item => item.recipeId === production.recipeId && item.seller === seller
-        );
+            if (item.seller === 'Luiza') {
+              return { ...item, quantity: Math.max(0, item.quantity - production.luizaQuantity) };
+            }
 
-        if (index >= 0) {
-          const nextQuantity = nextSellerStock[index].quantity + delta;
+            if (item.seller === 'Priscila') {
+              return { ...item, quantity: Math.max(0, item.quantity - production.priscilaQuantity) };
+            }
 
-          if (nextQuantity > 0) {
-            nextSellerStock[index] = { ...nextSellerStock[index], quantity: nextQuantity };
-          } else {
-            nextSellerStock = nextSellerStock.filter((_, itemIndex) => itemIndex !== index);
+            return item;
+          })
+          .filter(item => item.quantity > 0);
+
+        const restoreMap = new Map<string, number>();
+
+        originalRecipe.ingredients.forEach(item => {
+          restoreMap.set(
+            item.ingredientId,
+            (restoreMap.get(item.ingredientId) || 0) + (item.quantity * production.quantity)
+          );
+        });
+
+        originalRecipe.packaging.forEach(item => {
+          restoreMap.set(
+            item.ingredientId,
+            (restoreMap.get(item.ingredientId) || 0) + (item.quantity * production.quantity)
+          );
+        });
+
+        const restoredIngredients = revertedState.ingredients.map(item => {
+          const restoredQuantity = restoreMap.get(item.id) || 0;
+
+          if (!restoredQuantity) {
+            return item;
           }
-          return;
-        }
 
-        if (delta > 0) {
-          nextSellerStock.push({
-            recipeId: production.recipeId,
-            recipeName: production.recipeName,
-            seller,
-            quantity: delta,
-          });
-        }
-      };
+          return {
+            ...item,
+            currentStock: item.currentStock + restoredQuantity,
+          };
+        });
 
-      updateSellerStock('Luiza', luizaDelta);
-      updateSellerStock('Priscila', priscilaDelta);
+        revertedState = {
+          ...revertedState,
+          ingredients: restoredIngredients,
+          readyStock: restoredStock,
+          sellerStock: restoredSellerStock,
+        };
+      }
+
+      const reAppliedState = applyProductionToState(
+        revertedState,
+        nextRecipe,
+        productionQuantity,
+        luizaQuantity,
+        priscilaQuantity
+      );
 
       return {
-        ...prev,
-        productions: prev.productions.map(item =>
+        ...reAppliedState,
+        productions: reAppliedState.productions.map(item =>
           item.id === editingProductionId
             ? {
                 ...item,
+                recipeId: nextRecipe.id,
+                recipeName: nextRecipe.name,
+                quantity: productionQuantity,
                 luizaQuantity,
                 priscilaQuantity,
+                date: productionDate,
               }
             : item
         ),
-        sellerStock: nextSellerStock,
       };
     });
 
@@ -369,7 +424,6 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
                 className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
                 value={selectedRecipe}
                 onChange={e => setSelectedRecipe(e.target.value)}
-                disabled={Boolean(editingProductionId)}
               >
                 <option value="">Selecione...</option>
                 {recipes.map(r => (
@@ -385,7 +439,6 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
                 value={productionQuantity}
                 onChange={e => setProductionQuantity(parseInt(e.target.value) || 0)}
                 min="1"
-                disabled={Boolean(editingProductionId)}
               />
             </div>
             <div>
@@ -395,13 +448,12 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
                 className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
                 value={productionDate}
                 onChange={e => setProductionDate(e.target.value)}
-                disabled={Boolean(editingProductionId)}
               />
             </div>
           </div>
           {editingProductionId && (
             <div className="mt-4 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-              Aqui voce edita somente quanto a Luiza e a Priscila levaram dessa producao. A quantidade total produzida permanece a mesma.
+              Aqui voce pode editar sabor, data, quantidade total e quanto a Luiza e a Priscila levaram dessa producao.
             </div>
           )}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
