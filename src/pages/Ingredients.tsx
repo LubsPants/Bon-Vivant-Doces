@@ -32,6 +32,8 @@ const EMPTY_FORM: IngredientFormState = {
   category: 'ingredient',
 };
 
+type StockInputUnit = 'g' | 'kg' | 'ml' | 'L' | 'un' | 'pct';
+
 function toFormState(ingredient: Ingredient): IngredientFormState {
   return {
     name: ingredient.name,
@@ -45,11 +47,76 @@ function toFormState(ingredient: Ingredient): IngredientFormState {
   };
 }
 
+function getDefaultStockInputUnit(unit: Ingredient['unit']): StockInputUnit {
+  if (unit === 'kg') {
+    return 'g';
+  }
+
+  if (unit === 'L') {
+    return 'ml';
+  }
+
+  return unit;
+}
+
+function getStockInputOptions(unit: Ingredient['unit']): StockInputUnit[] {
+  if (unit === 'kg') {
+    return ['g', 'kg'];
+  }
+
+  if (unit === 'L') {
+    return ['ml', 'L'];
+  }
+
+  return [unit];
+}
+
+function normalizeStockQuantity(
+  quantity: number,
+  stockInputUnit: StockInputUnit,
+  ingredientUnit: Ingredient['unit']
+) {
+  if (ingredientUnit === 'kg' && stockInputUnit === 'g') {
+    return quantity / 1000;
+  }
+
+  if (ingredientUnit === 'L' && stockInputUnit === 'ml') {
+    return quantity / 1000;
+  }
+
+  return quantity;
+}
+
+function toStockInputValue(quantity: number, stockInputUnit: StockInputUnit, ingredientUnit: Ingredient['unit']) {
+  if (ingredientUnit === 'kg' && stockInputUnit === 'g') {
+    return (quantity * 1000).toString();
+  }
+
+  if (ingredientUnit === 'L' && stockInputUnit === 'ml') {
+    return (quantity * 1000).toString();
+  }
+
+  return quantity.toString();
+}
+
+function formatStockDisplay(quantity: number, unit: Ingredient['unit']) {
+  if (unit === 'kg' && quantity > 0 && quantity < 1) {
+    return `${Math.round(quantity * 1000)} g`;
+  }
+
+  if (unit === 'L' && quantity > 0 && quantity < 1) {
+    return `${Math.round(quantity * 1000)} ml`;
+  }
+
+  return `${quantity} ${unit}`;
+}
+
 export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setState }) => {
   const [activeFilter, setActiveFilter] = useState<'all' | 'ingredient' | 'packaging'>('all');
   const [form, setForm] = useState<IngredientFormState>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editMode, setEditMode] = useState<EditMode>('update');
+  const [stockInputUnit, setStockInputUnit] = useState<StockInputUnit>(getDefaultStockInputUnit(EMPTY_FORM.unit));
 
   const isEditing = Boolean(editingId);
 
@@ -77,6 +144,7 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
     setForm(EMPTY_FORM);
     setEditingId(null);
     setEditMode('update');
+    setStockInputUnit(getDefaultStockInputUnit(EMPTY_FORM.unit));
   };
 
   const handleSubmit = () => {
@@ -96,9 +164,14 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
           const purchaseQuantity = parseFloat(form.purchaseQuantity);
           const minStock = parseFloat(form.minStock) || 0;
           const yieldQuantity = form.yieldQuantity ? parseFloat(form.yieldQuantity) : undefined;
+          const normalizedCurrentStock = normalizeStockQuantity(
+            parseFloat(form.currentStock) || 0,
+            stockInputUnit,
+            form.unit
+          );
 
           if (editMode === 'restock') {
-            const addedStock = parseFloat(form.currentStock) || 0;
+            const addedStock = normalizedCurrentStock;
 
             return {
               ...item,
@@ -119,7 +192,7 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
             unit: form.unit,
             purchasePrice,
             purchaseQuantity,
-            currentStock: parseFloat(form.currentStock) || 0,
+            currentStock: normalizedCurrentStock,
             minStock,
             category: form.category,
             yieldQuantity,
@@ -137,7 +210,11 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
       unit: form.unit,
       purchasePrice: parseFloat(form.purchasePrice),
       purchaseQuantity: parseFloat(form.purchaseQuantity),
-      currentStock: parseFloat(form.currentStock || form.purchaseQuantity),
+      currentStock: normalizeStockQuantity(
+        parseFloat(form.currentStock || form.purchaseQuantity),
+        stockInputUnit,
+        form.unit
+      ),
       minStock: parseFloat(form.minStock) || 0,
       category: form.category,
       yieldQuantity: form.yieldQuantity ? parseFloat(form.yieldQuantity) : undefined,
@@ -148,9 +225,14 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
   };
 
   const startEditing = (ingredient: Ingredient) => {
+    const nextStockInputUnit = getDefaultStockInputUnit(ingredient.unit);
     setEditingId(ingredient.id);
-    setForm(toFormState(ingredient));
+    setForm({
+      ...toFormState(ingredient),
+      currentStock: toStockInputValue(ingredient.currentStock, nextStockInputUnit, ingredient.unit),
+    });
     setEditMode('update');
+    setStockInputUnit(nextStockInputUnit);
   };
 
   const deleteIngredient = (id: string) => {
@@ -180,7 +262,7 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
             {isEditing ? 'Editar Item de Estoque' : 'Novo Item de Estoque'}
           </h2>
           <p className="text-sm text-slate-500 mt-1">
-            Cadastre ingredientes e embalagens. Na reposicao, informe a quantidade comprada agora para somar ao estoque.
+            Cadastre ingredientes e embalagens. Em itens comprados em kg ou L, voce pode informar o estoque atual em g ou ml.
           </p>
         </div>
 
@@ -240,7 +322,11 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
             <select
               className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
               value={form.unit}
-              onChange={e => setForm({ ...form, unit: e.target.value as Ingredient['unit'] })}
+              onChange={e => {
+                const nextUnit = e.target.value as Ingredient['unit'];
+                setForm({ ...form, unit: nextUnit });
+                setStockInputUnit(getDefaultStockInputUnit(nextUnit));
+              }}
             >
               <option value="g">Gramas (g)</option>
               <option value="kg">Quilos (kg)</option>
@@ -284,13 +370,29 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
             <label className="block text-xs font-medium text-slate-500 mb-1">
               {editMode === 'restock' ? 'Qtd. da Reposicao' : 'Estoque Atual'}
             </label>
-            <input
-              type="number"
-              className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
-              placeholder={editMode === 'restock' ? 'Ex: 500' : 'Ex: 1000'}
-              value={form.currentStock}
-              onChange={e => setForm({ ...form, currentStock: e.target.value })}
-            />
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <input
+                type="number"
+                className="w-full p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
+                placeholder={editMode === 'restock' ? 'Ex: 700' : 'Ex: 700'}
+                value={form.currentStock}
+                onChange={e => setForm({ ...form, currentStock: e.target.value })}
+              />
+              <select
+                className="p-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
+                value={stockInputUnit}
+                onChange={e => setStockInputUnit(e.target.value as StockInputUnit)}
+              >
+                {getStockInputOptions(form.unit).map(unitOption => (
+                  <option key={unitOption} value={unitOption}>{unitOption}</option>
+                ))}
+              </select>
+            </div>
+            {(form.unit === 'kg' || form.unit === 'L') && (
+              <p className="mt-1 text-xs text-slate-500">
+                Exemplo: compra em {form.unit}, mas estoque atual em {form.unit === 'kg' ? 'g' : 'ml'}.
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Estoque Mínimo</label>
@@ -380,7 +482,7 @@ export const IngredientsPage: React.FC<IngredientsPageProps> = ({ state, setStat
                   )}
                 </div>
                 <div className={`text-xs mt-1 ${isOutOfStock ? 'text-red-700' : 'text-slate-500'}`}>
-                  Estoque: {ingredient.currentStock} {ingredient.unit} | Min.: {ingredient.minStock} {ingredient.unit}
+                  Estoque: {formatStockDisplay(ingredient.currentStock, ingredient.unit)} | Min.: {formatStockDisplay(ingredient.minStock, ingredient.unit)}
                 </div>
                 <div className="text-xs text-slate-500">
                   Custo base: R$ {formatCurrency(ingredient.purchasePrice / ingredient.purchaseQuantity)}/{ingredient.unit}
