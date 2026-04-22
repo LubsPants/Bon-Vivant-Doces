@@ -20,7 +20,8 @@ export const INITIAL_STATE: AppState = {
 function normalizeIngredient(item: Ingredient): Ingredient {
   return {
     ...item,
-    yieldQuantity: item.yieldQuantity ?? undefined,
+    minStock: 0,
+    yieldQuantity: undefined,
   };
 }
 
@@ -96,6 +97,7 @@ export function reconcileAppState(state: AppState): AppState {
 
   return {
     ...state,
+    ingredients: state.ingredients.map(item => normalizeIngredient(item)),
     sales: state.sales.map(item => ({
       ...item,
       price: getSellerPrice(item.seller),
