@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { TrendingUp, DollarSign, Package, Award, Target, Edit2, Check, TrendingDown } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { AppState } from '../types';
+import { getCashBalance, getCashMovementsForMonth, getCashTotalByCategory, getCashTotalByType } from '../lib/cash';
 import { getRecipeCost } from '../utils/costs';
 
 interface DashboardPageProps {
@@ -18,6 +19,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ state, setState })
   };
 
   const totalRevenue = state.sales.reduce((sum, sale) => sum + (sale.price * sale.quantity), 0);
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const monthlyCashMovements = getCashMovementsForMonth(state.cashMovements, currentMonth);
   
   const totalCost = state.sales.reduce((sum, sale) => {
     const recipe = state.recipes.find(r => r.id === sale.recipeId);
@@ -28,6 +31,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ state, setState })
   }, 0);
 
   const netProfit = totalRevenue - totalCost;
+  const cashBalance = getCashBalance(state.cashMovements);
+  const monthlyCashIn = getCashTotalByType(monthlyCashMovements, 'income');
+  const monthlyCashOut = getCashTotalByType(monthlyCashMovements, 'expense');
+  const monthlyWithdrawals = getCashTotalByCategory(monthlyCashMovements, 'withdrawal');
   
   // Goal calculations
   const goalProgress = Math.min((totalRevenue / state.monthlyGoal.value) * 100, 100);
@@ -160,6 +167,26 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ state, setState })
           </div>
           <div className="text-2xl font-black text-blue-700">R$ {formatCurrency(netProfit)}</div>
         </div>
+        <div className="bg-gradient-to-br from-amber-50 to-yellow-50 p-5 rounded-3xl shadow-sm border border-amber-100">
+          <div className="flex items-center gap-2 text-amber-600 mb-2">
+            <div className="p-1.5 bg-amber-100 rounded-lg">
+              <DollarSign size={14} />
+            </div>
+            <span className="text-xs font-bold uppercase tracking-wider">Saldo em Caixa</span>
+          </div>
+          <div className={`text-2xl font-black ${cashBalance >= 0 ? 'text-amber-700' : 'text-rose-700'}`}>
+            R$ {formatCurrency(cashBalance)}
+          </div>
+        </div>
+        <div className="bg-gradient-to-br from-rose-50 to-orange-50 p-5 rounded-3xl shadow-sm border border-rose-100">
+          <div className="flex items-center gap-2 text-rose-600 mb-2">
+            <div className="p-1.5 bg-rose-100 rounded-lg">
+              <TrendingDown size={14} />
+            </div>
+            <span className="text-xs font-bold uppercase tracking-wider">Saídas do Mês</span>
+          </div>
+          <div className="text-2xl font-black text-rose-700">R$ {formatCurrency(monthlyCashOut)}</div>
+        </div>
       </div>
 
       {/* Detailed Financials */}
@@ -174,6 +201,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ state, setState })
           <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
             <span className="text-sm text-slate-600 font-medium">Faturamento Bruto</span>
             <span className="font-bold text-slate-800">R$ {formatCurrency(totalRevenue)}</span>
+          </div>
+          <div className="flex justify-between items-center p-3 bg-emerald-50 rounded-xl">
+            <span className="text-sm text-emerald-700 font-medium">Entradas no Caixa no Mês</span>
+            <span className="font-bold text-emerald-700">R$ {formatCurrency(monthlyCashIn)}</span>
+          </div>
+          <div className="flex justify-between items-center p-3 bg-orange-50 rounded-xl">
+            <span className="text-sm text-orange-700 font-medium">Retiradas do Caixa no Mês</span>
+            <span className="font-bold text-orange-700">- R$ {formatCurrency(monthlyWithdrawals)}</span>
           </div>
           <div className="flex justify-between items-center p-3 bg-rose-50 rounded-xl">
             <span className="text-sm text-rose-600 font-medium">Custos de Produção</span>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShoppingBag, User, Calendar, Trash2 } from 'lucide-react';
 import { Sale, AppState } from '../types';
+import { createSaleCashMovement } from '../lib/cash';
 import { getSellerPrice } from '../lib/sales';
 import { getAvailableReadyStock, getAvailableReadyStockItem, getAvailableSellerStock, getAvailableSellerStockItem } from '../lib/stock';
 
@@ -42,6 +43,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({ state, setState }) => {
       price: getSellerPrice(saleData.seller),
       quantity: saleData.quantity
     };
+    const cashMovement = createSaleCashMovement(sale);
 
     setState(prev => {
       const updatedSellerStock = prev.sellerStock
@@ -64,6 +66,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({ state, setState }) => {
       return {
         ...prev,
         sales: [sale, ...prev.sales],
+        cashMovements: [cashMovement, ...prev.cashMovements],
         sellerStock: updatedSellerStock,
         readyStock: updatedReadyStock,
       };
@@ -117,6 +120,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({ state, setState }) => {
       return {
         ...prev,
         sales: prev.sales.filter(item => item.id !== id),
+        cashMovements: prev.cashMovements.filter(item => item.sourceId !== id),
         sellerStock: updatedSellerStock,
         readyStock: updatedReadyStock,
       };

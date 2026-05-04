@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Package, Utensils, ShoppingCart, ClipboardList, Bookmark } from 'lucide-react';
+import { Home, Package, Utensils, ShoppingCart, ClipboardList, Bookmark, Wallet } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,6 +14,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
     { id: 'recipes', label: 'Receitas', icon: Utensils },
     { id: 'reservations', label: 'Reserva', icon: Bookmark },
     { id: 'sales', label: 'Vendas', icon: ShoppingCart },
+    { id: 'cash', label: 'Caixa', icon: Wallet },
     { id: 'production', label: 'Produção', icon: ClipboardList },
   ];
 
@@ -39,7 +40,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-rose-100 p-2 flex justify-around items-center shadow-lg">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-rose-100 p-2 grid grid-cols-7 gap-1 shadow-lg">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -49,7 +50,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
               key={item.id}
               aria-label={item.label}
               onClick={() => setActiveTab(item.id)}
-              className={`flex min-w-0 flex-1 flex-col items-center gap-1 p-2 rounded-xl transition-all ${
+              className={`flex min-w-0 flex-col items-center gap-1 p-2 rounded-xl transition-all ${
                 isActive 
                   ? 'text-rose-600 bg-rose-50' 
                   : 'text-slate-400 hover:text-rose-400 hover:bg-rose-50/50'

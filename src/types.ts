@@ -1,4 +1,14 @@
 export type SellerName = 'Luiza' | 'Priscila';
+export type CashMovementType = 'income' | 'expense';
+export type CashMovementCategory =
+  | 'sale'
+  | 'market'
+  | 'ingredient'
+  | 'packaging'
+  | 'withdrawal'
+  | 'transport'
+  | 'other';
+export type CashMovementSourceType = 'sale' | 'reservation' | 'manual';
 
 export interface Ingredient {
   id: string;
@@ -93,6 +103,17 @@ export interface MonthlyGoal {
   month: string;
 }
 
+export interface CashMovement {
+  id: string;
+  type: CashMovementType;
+  category: CashMovementCategory;
+  description: string;
+  amount: number;
+  date: string;
+  sourceType: CashMovementSourceType;
+  sourceId?: string;
+}
+
 export interface AppState {
   ingredients: Ingredient[];
   preparations: Preparation[];
@@ -103,4 +124,5 @@ export interface AppState {
   readyStock: ReadyStock[];
   sellerStock: SellerStock[];
   monthlyGoal: MonthlyGoal;
+  cashMovements: CashMovement[];
 }

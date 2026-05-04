@@ -15,6 +15,7 @@ export const INITIAL_STATE: AppState = {
   readyStock: [],
   sellerStock: [],
   monthlyGoal: { value: 5000, month: getCurrentMonth() },
+  cashMovements: [],
 };
 
 function normalizeIngredient(item: Ingredient): Ingredient {
@@ -106,6 +107,15 @@ export function reconcileAppState(state: AppState): AppState {
       ...item,
       price: getSellerPrice(item.seller),
     })),
+    cashMovements: state.cashMovements
+      .filter(item => item && typeof item === 'object')
+      .map(item => ({
+        ...item,
+        amount: typeof item.amount === 'number' ? item.amount : 0,
+        description: typeof item.description === 'string' ? item.description : '',
+        date: typeof item.date === 'string' ? item.date : new Date().toISOString(),
+      }))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     readyStock,
     sellerStock,
   };
@@ -123,6 +133,7 @@ export function normalizeAppState(value: unknown): AppState {
     productions: Array.isArray(raw.productions) ? raw.productions : [],
     readyStock: Array.isArray(raw.readyStock) ? raw.readyStock : [],
     sellerStock: Array.isArray(raw.sellerStock) ? raw.sellerStock : [],
+    cashMovements: Array.isArray(raw.cashMovements) ? raw.cashMovements : [],
     monthlyGoal: raw.monthlyGoal && typeof raw.monthlyGoal === 'object'
       ? {
           value: typeof raw.monthlyGoal.value === 'number' ? raw.monthlyGoal.value : INITIAL_STATE.monthlyGoal.value,

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Bookmark, Calendar, CheckCircle2, Trash2, User } from 'lucide-react';
 import { AppState, Reservation, Sale } from '../types';
+import { createSaleCashMovement } from '../lib/cash';
 import { getSellerPrice } from '../lib/sales';
 import { getAvailableReadyStock, getAvailableReadyStockItem } from '../lib/stock';
 
@@ -75,6 +76,7 @@ export const ReservationsPage: React.FC<ReservationsPageProps> = ({ state, setSt
         price: reservation.price,
         quantity: reservation.quantity,
       };
+      const cashMovement = createSaleCashMovement(sale);
 
       const updatedReadyStock = prev.readyStock
         .map(item =>
@@ -96,6 +98,7 @@ export const ReservationsPage: React.FC<ReservationsPageProps> = ({ state, setSt
         ...prev,
         reservations: prev.reservations.filter(item => item.id !== reservationId),
         sales: [sale, ...prev.sales],
+        cashMovements: [cashMovement, ...prev.cashMovements],
         readyStock: updatedReadyStock,
         sellerStock: updatedSellerStock,
       };

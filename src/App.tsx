@@ -6,6 +6,7 @@ import { RecipesPage } from './pages/Recipes';
 import { SalesPage } from './pages/Sales';
 import { ProductionPage } from './pages/Production';
 import { ReservationsPage } from './pages/Reservations';
+import { CashPage } from './pages/Cash';
 import { useSupabaseAppState } from './hooks/useSupabaseAppState';
 
 function App() {
@@ -40,6 +41,8 @@ function App() {
         return <SalesPage state={state} setState={setState} />;
       case 'reservations':
         return <ReservationsPage state={state} setState={setState} />;
+      case 'cash':
+        return <CashPage state={state} setState={setState} />;
       case 'production':
         return <ProductionPage state={state} setState={setState} />;
       default:
