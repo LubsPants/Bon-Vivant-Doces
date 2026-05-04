@@ -16,6 +16,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({ state, setState }) => {
     seller: 'Luiza' as 'Luiza' | 'Priscila',
     quantity: 1,
   });
+  const todayKey = new Date().toISOString().slice(0, 10);
 
   const availableReadyStock = getAvailableReadyStock(state);
   const availableSellerStock = getAvailableSellerStock(state, saleData.seller);
@@ -25,6 +26,9 @@ export const SalesPage: React.FC<SalesPageProps> = ({ state, setState }) => {
     (selectedReadyStock ? selectedReadyStock.quantity >= saleData.quantity : false)
     && (selectedSellerStock ? selectedSellerStock.quantity >= saleData.quantity : false)
   );
+  const todaysSales = state.sales.filter(sale => sale.date.slice(0, 10) === todayKey);
+  const previousSales = state.sales.filter(sale => sale.date.slice(0, 10) !== todayKey);
+  const todaysRevenue = todaysSales.reduce((sum, sale) => sum + (sale.price * sale.quantity), 0);
 
   const recordSale = () => {
     if (!saleData.recipeId || saleData.quantity <= 0) return;
@@ -213,11 +217,29 @@ export const SalesPage: React.FC<SalesPageProps> = ({ state, setState }) => {
       </div>
 
       <div className="space-y-3">
-        <h2 className="text-xl font-bold text-slate-800 px-2">Vendas Recentes</h2>
+        <h2 className="text-xl font-bold text-slate-800 px-2">Vendas de Hoje</h2>
+        <div className="bg-gradient-to-r from-rose-500 to-pink-500 p-4 rounded-2xl text-white shadow-sm">
+          <div className="text-xs uppercase tracking-wider text-white/80 font-bold">Resumo do Dia</div>
+          <div className="mt-2 flex items-end justify-between gap-4">
+            <div>
+              <div className="text-3xl font-black">{todaysSales.length}</div>
+              <div className="text-sm text-white/80">registro(s) de venda hoje</div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-black">R$ {todaysRevenue.toFixed(2)}</div>
+              <div className="text-sm text-white/80">vendido hoje</div>
+            </div>
+          </div>
+        </div>
         {state.sales.length === 0 && (
           <div className="text-center py-10 text-slate-400 italic">Nenhuma venda registrada.</div>
         )}
-        {state.sales.map(sale => {
+        {todaysSales.length === 0 && state.sales.length > 0 && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 text-center text-slate-400 italic">
+            Nenhuma venda registrada hoje.
+          </div>
+        )}
+        {todaysSales.map(sale => {
           const recipe = state.recipes.find(r => r.id === sale.recipeId);
           return (
             <div key={sale.id} className="bg-white p-4 rounded-2xl shadow-sm border border-rose-100 flex justify-between items-center">
@@ -246,6 +268,40 @@ export const SalesPage: React.FC<SalesPageProps> = ({ state, setState }) => {
           );
         })}
       </div>
+
+      {previousSales.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-xl font-bold text-slate-800 px-2">Vendas Anteriores</h2>
+          {previousSales.map(sale => {
+            const recipe = state.recipes.find(r => r.id === sale.recipeId);
+            return (
+              <div key={sale.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center font-bold">
+                    {sale.quantity}x
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-700">{recipe?.name || 'Sabor removido'}</div>
+                    <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                      <User size={10} /> {sale.seller} • <Calendar size={10} /> {new Date(sale.date).toLocaleDateString('pt-BR')}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="font-bold text-slate-700">R$ {(sale.price * sale.quantity).toFixed(2)}</div>
+                  <button
+                    onClick={() => deleteSale(sale.id)}
+                    className="text-slate-300 hover:text-rose-500 transition-colors"
+                    title="Apagar venda e devolver ao estoque"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
