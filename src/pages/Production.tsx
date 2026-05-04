@@ -3,6 +3,7 @@ import { ProductionRecord, Recipe, ReadyStock, Ingredient, AppState, SellerStock
 import { Package, Plus, Calendar, ChefHat, Trash2, Pencil } from 'lucide-react';
 import { getRecipeCost as calculateRecipeCost, getRecipeIngredientConsumption } from '../utils/costs';
 import { getAvailableReadyStock, getAvailableSellerStock } from '../lib/stock';
+import { LeftoversPage } from './Leftovers';
 
 interface ProductionPageProps {
   state: AppState;
@@ -10,6 +11,7 @@ interface ProductionPageProps {
 }
 
 export function ProductionPage({ state, setState }: ProductionPageProps) {
+  const [activeSection, setActiveSection] = useState<'production' | 'leftovers'>('production');
   const [showProductionForm, setShowProductionForm] = useState(false);
   const [editingProductionId, setEditingProductionId] = useState<string | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState('');
@@ -384,6 +386,27 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
 
   return (
     <div className="space-y-6">
+      <div className="flex p-1 bg-white rounded-2xl shadow-sm border border-rose-100">
+        <button
+          type="button"
+          onClick={() => setActiveSection('production')}
+          className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${activeSection === 'production' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-500'}`}
+        >
+          Produção
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveSection('leftovers')}
+          className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all ${activeSection === 'leftovers' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-500'}`}
+        >
+          Sobrou
+        </button>
+      </div>
+
+      {activeSection === 'leftovers' ? (
+        <LeftoversPage state={state} setState={setState} />
+      ) : (
+        <>
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Produção Semanal</h1>
@@ -703,6 +726,8 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
           </div>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }
