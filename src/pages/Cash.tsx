@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowDownCircle, ArrowUpCircle, Trash2, Wallet } from 'lucide-react';
+import { ArrowDownCircle, ArrowUpCircle, Check, Pencil, Trash2, Wallet, X } from 'lucide-react';
 import { AppState, CashMovement, CashMovementCategory } from '../types';
 import {
   CASH_CATEGORY_LABELS,
@@ -44,6 +44,14 @@ export const CashPage: React.FC<CashPageProps> = ({ state, setState }) => {
   const [periodFilter, setPeriodFilter] = useState<CashPeriodFilter>('today');
   const [typeFilter, setTypeFilter] = useState<'all' | CashMovement['type']>('all');
   const [categoryFilter, setCategoryFilter] = useState<'all' | CashMovementCategory>('all');
+  const [editingMovementId, setEditingMovementId] = useState<string | null>(null);
+  const [editingData, setEditingData] = useState({
+    type: 'expense' as CashMovement['type'],
+    category: 'market' as CashMovementCategory,
+    description: '',
+    amount: '',
+    date: new Date().toISOString().slice(0, 10),
+  });
   const todayKey = new Date().toISOString().slice(0, 10);
 
   const currentMonth = useMemo(() => new Date().toISOString().slice(0, 7), []);
@@ -101,6 +109,103 @@ export const CashPage: React.FC<CashPageProps> = ({ state, setState }) => {
     const signedAmount = getCashMovementSignedAmount(movement);
     const isManual = movement.sourceType === 'manual';
     const isIncome = movement.type === 'income';
+    const isEditing = editingMovementId === movement.id;
+
+    if (isEditing && isManual) {
+      return (
+        <div key={movement.id} className="bg-white p-4 rounded-2xl shadow-sm border border-amber-200 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm font-bold text-amber-700">Editando lançamento manual</div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={saveEditedMovement}
+                className="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors"
+                title="Salvar edição"
+              >
+                <Check size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={cancelEditingMovement}
+                className="p-2 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+                title="Cancelar edição"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Tipo</label>
+              <div className="flex p-1 bg-slate-100 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setEditingData(prev => ({ ...prev, type: 'income', category: 'other' }))}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${editingData.type === 'income' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}
+                >
+                  Entrada
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingData(prev => ({ ...prev, type: 'expense', category: prev.category === 'sale' ? 'market' : prev.category }))}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${editingData.type === 'expense' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500'}`}
+                >
+                  Saída
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Categoria</label>
+              <select
+                className="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
+                value={editingData.category}
+                onChange={e => setEditingData(prev => ({ ...prev, category: e.target.value as CashMovementCategory }))}
+              >
+                {(editingData.type === 'income' ? ['other'] : CATEGORY_OPTIONS).map(category => (
+                  <option key={category} value={category}>
+                    {CASH_CATEGORY_LABELS[category]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Descrição</label>
+            <input
+              className="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
+              value={editingData.description}
+              onChange={e => setEditingData(prev => ({ ...prev, description: e.target.value }))}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Valor</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
+                value={editingData.amount}
+                onChange={e => setEditingData(prev => ({ ...prev, amount: e.target.value }))}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Data</label>
+              <input
+                type="date"
+                className="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-400 outline-none"
+                value={editingData.date}
+                onChange={e => setEditingData(prev => ({ ...prev, date: e.target.value }))}
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div key={movement.id} className={`bg-white p-4 rounded-2xl shadow-sm border flex justify-between items-center gap-4 ${mutedExpense ? 'border-slate-100' : 'border-rose-100'}`}>
@@ -120,14 +225,24 @@ export const CashPage: React.FC<CashPageProps> = ({ state, setState }) => {
             {signedAmount >= 0 ? '+' : '-'} R$ {formatCurrency(Math.abs(signedAmount))}
           </div>
           {isManual && (
-            <button
-              type="button"
-              onClick={() => deleteManualMovement(movement.id)}
-              className="text-slate-300 hover:text-rose-500 transition-colors"
-              title="Apagar lançamento manual"
-            >
-              <Trash2 size={16} />
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => startEditingMovement(movement)}
+                className="text-slate-300 hover:text-amber-500 transition-colors"
+                title="Editar lançamento manual"
+              >
+                <Pencil size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteManualMovement(movement.id)}
+                className="text-slate-300 hover:text-rose-500 transition-colors"
+                title="Apagar lançamento manual"
+              >
+                <Trash2 size={16} />
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -174,6 +289,55 @@ export const CashPage: React.FC<CashPageProps> = ({ state, setState }) => {
         movement => !(movement.id === id && movement.sourceType === 'manual')
       ),
     }));
+  };
+
+  const startEditingMovement = (movement: CashMovement) => {
+    if (movement.sourceType !== 'manual') {
+      return;
+    }
+
+    setEditingMovementId(movement.id);
+    setEditingData({
+      type: movement.type,
+      category: movement.category === 'sale' ? 'other' : movement.category,
+      description: movement.description,
+      amount: movement.amount.toString(),
+      date: movement.date.slice(0, 10),
+    });
+  };
+
+  const cancelEditingMovement = () => {
+    setEditingMovementId(null);
+  };
+
+  const saveEditedMovement = () => {
+    if (!editingMovementId) {
+      return;
+    }
+
+    const amount = Number(editingData.amount.replace(',', '.'));
+
+    if (!editingData.description.trim() || !editingData.date || Number.isNaN(amount) || amount <= 0) {
+      return;
+    }
+
+    setState(prev => ({
+      ...prev,
+      cashMovements: prev.cashMovements.map(movement =>
+        movement.id === editingMovementId && movement.sourceType === 'manual'
+          ? {
+              ...movement,
+              type: editingData.type,
+              category: editingData.category,
+              description: editingData.description.trim(),
+              amount,
+              date: new Date(`${editingData.date}T12:00:00`).toISOString(),
+            }
+          : movement
+      ),
+    }));
+
+    setEditingMovementId(null);
   };
 
   return (
