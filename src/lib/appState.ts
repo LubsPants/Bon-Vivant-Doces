@@ -15,6 +15,7 @@ export const INITIAL_STATE: AppState = {
   productions: [],
   readyStock: [],
   sellerStock: [],
+  leftovers: [],
   monthlyGoal: { value: 5000, month: getCurrentMonth() },
   cashMovements: [],
 };
@@ -88,6 +89,25 @@ function reconcileStocks(state: AppState) {
     }
   });
 
+  state.leftovers.forEach(item => {
+    const currentReady = readyStockMap.get(item.recipeId);
+    if (currentReady) {
+      readyStockMap.set(item.recipeId, {
+        ...currentReady,
+        quantity: Math.max(0, currentReady.quantity - item.quantity),
+      });
+    }
+
+    const sellerKey = `${item.recipeId}:${item.seller}`;
+    const currentSeller = sellerStockMap.get(sellerKey);
+    if (currentSeller) {
+      sellerStockMap.set(sellerKey, {
+        ...currentSeller,
+        quantity: Math.max(0, currentSeller.quantity - item.quantity),
+      });
+    }
+  });
+
   return {
     readyStock: Array.from(readyStockMap.values()).filter(item => item.quantity > 0),
     sellerStock: Array.from(sellerStockMap.values()).filter(item => item.quantity > 0),
@@ -126,6 +146,7 @@ export function reconcileAppState(state: AppState): AppState {
     ingredients: state.ingredients.map(item => normalizeIngredient(item)),
     sales: normalizedSales,
     reservations: normalizedReservations,
+    leftovers: Array.isArray(state.leftovers) ? state.leftovers : [],
     cashMovements: [...normalizedCashMovements, ...missingSaleMovements]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     readyStock,
@@ -145,6 +166,7 @@ export function normalizeAppState(value: unknown): AppState {
     productions: Array.isArray(raw.productions) ? raw.productions : [],
     readyStock: Array.isArray(raw.readyStock) ? raw.readyStock : [],
     sellerStock: Array.isArray(raw.sellerStock) ? raw.sellerStock : [],
+    leftovers: Array.isArray(raw.leftovers) ? raw.leftovers : [],
     cashMovements: Array.isArray(raw.cashMovements) ? raw.cashMovements : [],
     monthlyGoal: raw.monthlyGoal && typeof raw.monthlyGoal === 'object'
       ? {

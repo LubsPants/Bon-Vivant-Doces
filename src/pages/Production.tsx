@@ -259,9 +259,12 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
   const getWeekDates = () => {
     const dates = [];
     const today = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startOfWeek);
+      date.setDate(startOfWeek.getDate() + i);
       dates.push(date.toISOString().split('T')[0]);
     }
     return dates;
@@ -274,7 +277,10 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
   };
 
   const getTotalProduced = () => {
-    return productions.reduce((sum, p) => sum + p.quantity, 0);
+    const weekDateSet = new Set(weekDates);
+    return productions
+      .filter(item => weekDateSet.has(item.date))
+      .reduce((sum, p) => sum + p.quantity, 0);
   };
 
   const getTotalReadyStock = () => {
@@ -512,7 +518,7 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
             <div className="p-1.5 bg-emerald-100 rounded-lg">
               <Calendar size={18} />
             </div>
-            <span className="text-xs font-semibold uppercase tracking-wide">Produzido (Semana)</span>
+            <span className="text-xs font-semibold uppercase tracking-wide">Produzido (Dom a Dom)</span>
           </div>
           <div className="text-3xl font-black text-emerald-700">{getTotalProduced()}</div>
           <div className="text-xs text-emerald-600 mt-1">bolos produzidos</div>
@@ -576,6 +582,9 @@ export function ProductionPage({ state, setState }: ProductionPageProps) {
           <Calendar size={20} className="text-rose-500" />
           Produção da Semana
         </h2>
+        <p className="text-xs text-slate-500 mb-4">
+          Semana atual: {new Date(`${weekDates[0]}T00:00:00`).toLocaleDateString('pt-BR')} a {new Date(`${weekDates[6]}T00:00:00`).toLocaleDateString('pt-BR')}
+        </p>
         <div className="grid grid-cols-7 gap-2">
           {weekDates.map(date => {
             const dayProds = getProductionByDate(date);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Package, Utensils, ShoppingCart, ClipboardList, Bookmark, Wallet } from 'lucide-react';
+import { Home, Package, Utensils, ShoppingCart, ClipboardList, Bookmark, Wallet, AlertTriangle } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -15,6 +15,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
     { id: 'reservations', label: 'Reserva', icon: Bookmark },
     { id: 'sales', label: 'Vendas', icon: ShoppingCart },
     { id: 'cash', label: 'Caixa', icon: Wallet },
+    { id: 'leftovers', label: 'Sobrou', icon: AlertTriangle },
     { id: 'production', label: 'Produção', icon: ClipboardList },
   ];
 
@@ -40,7 +41,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTa
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-rose-100 p-2 grid grid-cols-7 gap-1 shadow-lg">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-rose-100 p-2 grid grid-cols-8 gap-1 shadow-lg">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;

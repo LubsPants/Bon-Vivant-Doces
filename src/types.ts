@@ -9,6 +9,7 @@ export type CashMovementCategory =
   | 'transport'
   | 'other';
 export type CashMovementSourceType = 'sale' | 'reservation' | 'manual';
+export type LossReason = 'not_sold' | 'expired' | 'damaged' | 'donation' | 'other';
 
 export interface Ingredient {
   id: string;
@@ -98,6 +99,19 @@ export interface SellerStock {
   quantity: number;
 }
 
+export interface LeftoverRecord {
+  id: string;
+  recipeId: string;
+  recipeName: string;
+  seller: SellerName;
+  quantity: number;
+  reason: LossReason;
+  note?: string;
+  unitCost: number;
+  totalLoss: number;
+  date: string;
+}
+
 export interface MonthlyGoal {
   value: number;
   month: string;
@@ -123,6 +137,7 @@ export interface AppState {
   productions: ProductionRecord[];
   readyStock: ReadyStock[];
   sellerStock: SellerStock[];
+  leftovers: LeftoverRecord[];
   monthlyGoal: MonthlyGoal;
   cashMovements: CashMovement[];
 }

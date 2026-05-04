@@ -36,8 +36,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ state, setState })
 
     return sum + (recipeCost * sale.quantity);
   }, 0);
+  const totalLeftoverLoss = state.leftovers.reduce((sum, item) => sum + item.totalLoss, 0);
 
-  const netProfit = totalRevenue - totalCost;
+  const netProfit = totalRevenue - totalCost - totalLeftoverLoss;
   const cashBalance = getCashBalance(state.cashMovements);
   const monthlyCashIn = getCashTotalByType(monthlyCashMovements, 'income');
   const monthlyCashOut = getCashTotalByType(monthlyCashMovements, 'expense');
