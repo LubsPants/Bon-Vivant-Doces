@@ -26,6 +26,7 @@ export const LeftoversPage: React.FC<LeftoversPageProps> = ({ state, setState })
     note: '',
     date: new Date().toISOString().slice(0, 10),
   });
+  const [sellerFilter, setSellerFilter] = useState<'all' | SellerName>('all');
 
   const currentMonth = new Date().toISOString().slice(0, 7);
   const availableSellerStock = getAvailableSellerStock(state, formData.seller);
@@ -36,6 +37,9 @@ export const LeftoversPage: React.FC<LeftoversPageProps> = ({ state, setState })
   );
   const monthlyLossUnits = currentMonthLeftovers.reduce((sum, item) => sum + item.quantity, 0);
   const monthlyLossValue = currentMonthLeftovers.reduce((sum, item) => sum + item.totalLoss, 0);
+  const filteredLeftovers = sellerFilter === 'all'
+    ? state.leftovers
+    : state.leftovers.filter(item => item.seller === sellerFilter);
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -215,10 +219,38 @@ export const LeftoversPage: React.FC<LeftoversPageProps> = ({ state, setState })
 
       <div className="space-y-3">
         <h2 className="text-xl font-bold text-slate-800 px-2">Histórico de Sobras</h2>
+        <div className="flex p-1 bg-white rounded-2xl shadow-sm border border-rose-100">
+          <button
+            type="button"
+            onClick={() => setSellerFilter('all')}
+            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${sellerFilter === 'all' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-500'}`}
+          >
+            Todas
+          </button>
+          <button
+            type="button"
+            onClick={() => setSellerFilter('Luiza')}
+            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${sellerFilter === 'Luiza' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-500'}`}
+          >
+            Luiza
+          </button>
+          <button
+            type="button"
+            onClick={() => setSellerFilter('Priscila')}
+            className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${sellerFilter === 'Priscila' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-500'}`}
+          >
+            Priscila
+          </button>
+        </div>
         {state.leftovers.length === 0 && (
           <div className="text-center py-10 text-slate-400 italic">Nenhuma sobra registrada.</div>
         )}
-        {state.leftovers.map(item => (
+        {state.leftovers.length > 0 && filteredLeftovers.length === 0 && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 text-center text-slate-400 italic">
+            Nenhuma sobra encontrada para esse filtro.
+          </div>
+        )}
+        {filteredLeftovers.map(item => (
           <div key={item.id} className="bg-white p-4 rounded-2xl shadow-sm border border-rose-100 flex justify-between items-center gap-4">
             <div>
               <div className="font-bold text-slate-700">{item.recipeName}</div>
