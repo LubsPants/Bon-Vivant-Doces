@@ -1,4 +1,5 @@
 import { AppState, Ingredient, ReadyStock, SellerStock } from '../types';
+import { createSaleCashMovement } from './cash';
 import { getSellerPrice } from './sales';
 
 function getCurrentMonth() {
@@ -95,26 +96,37 @@ function reconcileStocks(state: AppState) {
 
 export function reconcileAppState(state: AppState): AppState {
   const { readyStock, sellerStock } = reconcileStocks(state);
+  const normalizedSales = state.sales.map(item => ({
+    ...item,
+    price: getSellerPrice(item.seller),
+  }));
+  const normalizedReservations = state.reservations.map(item => ({
+    ...item,
+    price: getSellerPrice(item.seller),
+  }));
+  const normalizedCashMovements = state.cashMovements
+    .filter(item => item && typeof item === 'object')
+    .map(item => ({
+      ...item,
+      amount: typeof item.amount === 'number' ? item.amount : 0,
+      description: typeof item.description === 'string' ? item.description : '',
+      date: typeof item.date === 'string' ? item.date : new Date().toISOString(),
+    }));
+  const existingSaleMovementIds = new Set(
+    normalizedCashMovements
+      .filter(item => item.sourceType === 'sale' && typeof item.sourceId === 'string')
+      .map(item => item.sourceId as string)
+  );
+  const missingSaleMovements = normalizedSales
+    .filter(item => !existingSaleMovementIds.has(item.id))
+    .map(item => createSaleCashMovement(item));
 
   return {
     ...state,
     ingredients: state.ingredients.map(item => normalizeIngredient(item)),
-    sales: state.sales.map(item => ({
-      ...item,
-      price: getSellerPrice(item.seller),
-    })),
-    reservations: state.reservations.map(item => ({
-      ...item,
-      price: getSellerPrice(item.seller),
-    })),
-    cashMovements: state.cashMovements
-      .filter(item => item && typeof item === 'object')
-      .map(item => ({
-        ...item,
-        amount: typeof item.amount === 'number' ? item.amount : 0,
-        description: typeof item.description === 'string' ? item.description : '',
-        date: typeof item.date === 'string' ? item.date : new Date().toISOString(),
-      }))
+    sales: normalizedSales,
+    reservations: normalizedReservations,
+    cashMovements: [...normalizedCashMovements, ...missingSaleMovements]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
     readyStock,
     sellerStock,
