@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { TrendingUp, DollarSign, Package, Award, Target, Edit2, Check, TrendingDown, Eye, EyeOff } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { AppState } from '../types';
-import { getCashBalance, getCashMovementsForMonth, getCashTotalByType } from '../lib/cash';
+import { getCashBalance, getCashMovementsForMonth, getCashTotalByCategory, getCashTotalByType } from '../lib/cash';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 import { getRecipeCost } from '../utils/costs';
 
 interface DashboardPageProps {
@@ -12,8 +13,13 @@ interface DashboardPageProps {
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ state, setState }) => {
   const [isEditingGoal, setIsEditingGoal] = useState(false);
-  const [isNetProfitHidden, setIsNetProfitHidden] = useState(false);
   const [tempGoal, setTempGoal] = useState(state.monthlyGoal.value.toString());
+  const [hiddenValues, setHiddenValues] = useLocalStorage('bon-vivant-dashboard-hidden-values', {
+    revenue: false,
+    netProfit: false,
+    cashBalance: false,
+    monthlyCashOut: false,
+  });
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -35,6 +41,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ state, setState })
   const cashBalance = getCashBalance(state.cashMovements);
   const monthlyCashIn = getCashTotalByType(monthlyCashMovements, 'income');
   const monthlyCashOut = getCashTotalByType(monthlyCashMovements, 'expense');
+  const monthlyWithdrawals = getCashTotalByCategory(monthlyCashMovements, 'withdrawal');
   
   // Goal calculations
   const goalProgress = Math.min((totalRevenue / state.monthlyGoal.value) * 100, 100);
@@ -47,6 +54,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ state, setState })
       setState(prev => ({ ...prev, monthlyGoal: { value: newGoal, month: prev.monthlyGoal.month } }));
       setIsEditingGoal(false);
     }
+  };
+
+  const toggleHiddenValue = (key: keyof typeof hiddenValues) => {
+    setHiddenValues(prev => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const renderCurrencyValue = (value: number, hidden: boolean) => {
+    return hidden ? 'R$ •••••' : `R$ ${formatCurrency(value)}`;
   };
 
   // Sales by Flavor for the chart
@@ -150,13 +168,26 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ state, setState })
       {/* Quick Stats */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-5 rounded-3xl shadow-sm border border-emerald-100">
-          <div className="flex items-center gap-2 text-emerald-600 mb-2">
-            <div className="p-1.5 bg-emerald-100 rounded-lg">
-              <DollarSign size={14} />
+          <div className="flex items-center justify-between gap-2 text-emerald-600 mb-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-emerald-100 rounded-lg">
+                <DollarSign size={14} />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-wider">Receita</span>
             </div>
-            <span className="text-xs font-bold uppercase tracking-wider">Receita</span>
+            <button
+              type="button"
+              onClick={() => toggleHiddenValue('revenue')}
+              className="p-1.5 bg-emerald-100 rounded-lg hover:bg-emerald-200 transition-colors"
+              aria-label={hiddenValues.revenue ? 'Mostrar receita' : 'Ocultar receita'}
+              title={hiddenValues.revenue ? 'Mostrar receita' : 'Ocultar receita'}
+            >
+              {hiddenValues.revenue ? <Eye size={14} /> : <EyeOff size={14} />}
+            </button>
           </div>
-          <div className="text-2xl font-black text-emerald-700">R$ {formatCurrency(totalRevenue)}</div>
+          <div className={`text-2xl font-black text-emerald-700 ${hiddenValues.revenue ? 'tracking-widest' : ''}`}>
+            {renderCurrencyValue(totalRevenue, hiddenValues.revenue)}
+          </div>
         </div>
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-3xl shadow-sm border border-blue-100">
           <div className="flex items-center justify-between gap-2 text-blue-600 mb-2">
@@ -168,37 +199,61 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ state, setState })
             </div>
             <button
               type="button"
-              onClick={() => setIsNetProfitHidden(prev => !prev)}
+              onClick={() => toggleHiddenValue('netProfit')}
               className="p-1.5 bg-blue-100 rounded-lg hover:bg-blue-200 transition-colors"
-              aria-label={isNetProfitHidden ? 'Mostrar lucro líquido' : 'Ocultar lucro líquido'}
-              title={isNetProfitHidden ? 'Mostrar lucro líquido' : 'Ocultar lucro líquido'}
+              aria-label={hiddenValues.netProfit ? 'Mostrar lucro líquido' : 'Ocultar lucro líquido'}
+              title={hiddenValues.netProfit ? 'Mostrar lucro líquido' : 'Ocultar lucro líquido'}
             >
-              {isNetProfitHidden ? <Eye size={14} /> : <EyeOff size={14} />}
+              {hiddenValues.netProfit ? <Eye size={14} /> : <EyeOff size={14} />}
             </button>
           </div>
-          <div className={`text-2xl font-black text-blue-700 ${isNetProfitHidden ? 'tracking-widest' : ''}`}>
-            {isNetProfitHidden ? 'R$ •••••' : `R$ ${formatCurrency(netProfit)}`}
+          <div className={`text-2xl font-black text-blue-700 ${hiddenValues.netProfit ? 'tracking-widest' : ''}`}>
+            {renderCurrencyValue(netProfit, hiddenValues.netProfit)}
           </div>
         </div>
         <div className="bg-gradient-to-br from-amber-50 to-yellow-50 p-5 rounded-3xl shadow-sm border border-amber-100">
-          <div className="flex items-center gap-2 text-amber-600 mb-2">
-            <div className="p-1.5 bg-amber-100 rounded-lg">
-              <DollarSign size={14} />
+          <div className="flex items-center justify-between gap-2 text-amber-600 mb-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-amber-100 rounded-lg">
+                <DollarSign size={14} />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-wider">Saldo em Caixa</span>
             </div>
-            <span className="text-xs font-bold uppercase tracking-wider">Saldo em Caixa</span>
+            <button
+              type="button"
+              onClick={() => toggleHiddenValue('cashBalance')}
+              className="p-1.5 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors"
+              aria-label={hiddenValues.cashBalance ? 'Mostrar saldo em caixa' : 'Ocultar saldo em caixa'}
+              title={hiddenValues.cashBalance ? 'Mostrar saldo em caixa' : 'Ocultar saldo em caixa'}
+            >
+              {hiddenValues.cashBalance ? <Eye size={14} /> : <EyeOff size={14} />}
+            </button>
           </div>
-          <div className={`text-2xl font-black ${cashBalance >= 0 ? 'text-amber-700' : 'text-rose-700'}`}>
-            R$ {formatCurrency(cashBalance)}
+          <div className={`text-2xl font-black ${cashBalance >= 0 ? 'text-amber-700' : 'text-rose-700'} ${hiddenValues.cashBalance ? 'tracking-widest' : ''}`}>
+            {renderCurrencyValue(cashBalance, hiddenValues.cashBalance)}
           </div>
         </div>
         <div className="bg-gradient-to-br from-rose-50 to-orange-50 p-5 rounded-3xl shadow-sm border border-rose-100">
-          <div className="flex items-center gap-2 text-rose-600 mb-2">
-            <div className="p-1.5 bg-rose-100 rounded-lg">
-              <TrendingDown size={14} />
+          <div className="flex items-center justify-between gap-2 text-rose-600 mb-2">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-rose-100 rounded-lg">
+                <TrendingDown size={14} />
+              </div>
+              <span className="text-xs font-bold uppercase tracking-wider">Saídas do Mês</span>
             </div>
-            <span className="text-xs font-bold uppercase tracking-wider">Saídas do Mês</span>
+            <button
+              type="button"
+              onClick={() => toggleHiddenValue('monthlyCashOut')}
+              className="p-1.5 bg-rose-100 rounded-lg hover:bg-rose-200 transition-colors"
+              aria-label={hiddenValues.monthlyCashOut ? 'Mostrar saídas do mês' : 'Ocultar saídas do mês'}
+              title={hiddenValues.monthlyCashOut ? 'Mostrar saídas do mês' : 'Ocultar saídas do mês'}
+            >
+              {hiddenValues.monthlyCashOut ? <Eye size={14} /> : <EyeOff size={14} />}
+            </button>
           </div>
-          <div className="text-2xl font-black text-rose-700">R$ {formatCurrency(monthlyCashOut)}</div>
+          <div className={`text-2xl font-black text-rose-700 ${hiddenValues.monthlyCashOut ? 'tracking-widest' : ''}`}>
+            {renderCurrencyValue(monthlyCashOut, hiddenValues.monthlyCashOut)}
+          </div>
         </div>
       </div>
 
@@ -221,7 +276,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ state, setState })
           </div>
           <div className="flex justify-between items-center p-3 bg-orange-50 rounded-xl">
             <span className="text-sm text-orange-700 font-medium">Retiradas do Caixa no Mês</span>
-            <span className="font-bold text-orange-700">- R$ {formatCurrency(monthlyCashOut)}</span>
+            <span className="font-bold text-orange-700">- R$ {formatCurrency(monthlyWithdrawals)}</span>
           </div>
           <div className="flex justify-between items-center p-3 bg-rose-50 rounded-xl">
             <span className="text-sm text-rose-600 font-medium">Custos de Produção</span>

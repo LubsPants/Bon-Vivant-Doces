@@ -60,11 +60,6 @@ export const CashPage: React.FC<CashPageProps> = ({ state, setState }) => {
   const monthlyIncome = getCashTotalByType(monthlyMovements, 'income');
   const monthlyExpenses = getCashTotalByType(monthlyMovements, 'expense');
   const monthlyWithdrawals = getCashTotalByCategory(monthlyMovements, 'withdrawal');
-  const todaysMovements = state.cashMovements.filter(movement => movement.date.slice(0, 10) === todayKey);
-  const previousMovements = state.cashMovements.filter(movement => movement.date.slice(0, 10) !== todayKey);
-  const todaysIncome = getCashTotalByType(todaysMovements, 'income');
-  const todaysExpenses = getCashTotalByType(todaysMovements, 'expense');
-  const todaysBalance = todaysIncome - todaysExpenses;
   const filteredMovements = useMemo(() => {
     const now = new Date();
     const startOfToday = new Date(`${todayKey}T00:00:00`);
@@ -104,6 +99,14 @@ export const CashPage: React.FC<CashPageProps> = ({ state, setState }) => {
   const filteredIncome = getCashTotalByType(filteredMovements, 'income');
   const filteredExpenses = getCashTotalByType(filteredMovements, 'expense');
   const filteredBalance = filteredIncome - filteredExpenses;
+
+  const filterSummaryTitle = {
+    today: 'Caixa de Hoje',
+    '7d': 'Caixa dos Últimos 7 Dias',
+    '30d': 'Caixa dos Últimos 30 Dias',
+    month: 'Caixa Deste Mês',
+    all: 'Caixa Geral',
+  }[periodFilter];
 
   const renderMovementCard = (movement: CashMovement, mutedExpense = false) => {
     const signedAmount = getCashMovementSignedAmount(movement);
@@ -452,71 +455,7 @@ export const CashPage: React.FC<CashPageProps> = ({ state, setState }) => {
       </div>
 
       <div className="space-y-3">
-        <h3 className="text-xl font-bold text-slate-800 px-2">Caixa de Hoje</h3>
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-4 rounded-2xl border border-emerald-100">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 mb-1">Entrou Hoje</div>
-            <div className="text-lg font-black text-emerald-700">R$ {formatCurrency(todaysIncome)}</div>
-          </div>
-          <div className="bg-gradient-to-br from-rose-50 to-orange-50 p-4 rounded-2xl border border-rose-100">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-rose-600 mb-1">Saiu Hoje</div>
-            <div className="text-lg font-black text-rose-700">R$ {formatCurrency(todaysExpenses)}</div>
-          </div>
-          <div className="bg-gradient-to-br from-sky-50 to-cyan-50 p-4 rounded-2xl border border-sky-100">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-sky-600 mb-1">Saldo do Dia</div>
-            <div className={`text-lg font-black ${todaysBalance >= 0 ? 'text-sky-700' : 'text-rose-700'}`}>
-              R$ {formatCurrency(todaysBalance)}
-            </div>
-          </div>
-        </div>
-        {state.cashMovements.length === 0 && (
-          <div className="text-center py-10 text-slate-400 italic">Nenhuma movimentação no caixa ainda.</div>
-        )}
-        {todaysMovements.length === 0 && state.cashMovements.length > 0 && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 text-center text-slate-400 italic">
-            Nenhuma movimentação registrada hoje.
-          </div>
-        )}
-        {todaysMovements.map(movement => {
-          const signedAmount = getCashMovementSignedAmount(movement);
-          const isManual = movement.sourceType === 'manual';
-          const isIncome = movement.type === 'income';
-
-          return (
-            <div key={movement.id} className="bg-white p-4 rounded-2xl shadow-sm border border-rose-100 flex justify-between items-center gap-4">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isIncome ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                  {isIncome ? <ArrowUpCircle size={18} /> : <ArrowDownCircle size={18} />}
-                </div>
-                <div className="min-w-0">
-                  <div className="font-bold text-slate-700 truncate">{movement.description}</div>
-                  <div className="text-[11px] text-slate-400">
-                    {CASH_CATEGORY_LABELS[movement.category]} • {new Date(movement.date).toLocaleDateString('pt-BR')} • {isManual ? 'Manual' : 'Automático'}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <div className={`font-bold ${signedAmount >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                  {signedAmount >= 0 ? '+' : '-'} R$ {formatCurrency(Math.abs(signedAmount))}
-                </div>
-                {isManual && (
-                  <button
-                    type="button"
-                    onClick={() => deleteManualMovement(movement.id)}
-                    className="text-slate-300 hover:text-rose-500 transition-colors"
-                    title="Apagar lançamento manual"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="space-y-3">
-        <h3 className="text-xl font-bold text-slate-800 px-2">Filtro do Caixa</h3>
+        <h3 className="text-xl font-bold text-slate-800 px-2">{filterSummaryTitle}</h3>
         <div className="bg-white p-4 rounded-3xl shadow-sm border border-rose-100 space-y-4">
           <div className="flex flex-wrap gap-2">
             {PERIOD_OPTIONS.map(option => (
@@ -587,12 +526,16 @@ export const CashPage: React.FC<CashPageProps> = ({ state, setState }) => {
 
       <div className="space-y-3">
         <h3 className="text-xl font-bold text-slate-800 px-2">Movimentações Filtradas</h3>
-        {filteredMovements.length === 0 ? (
+        {state.cashMovements.length === 0 ? (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 text-center text-slate-400 italic">
+            Nenhuma movimentação no caixa ainda.
+          </div>
+        ) : filteredMovements.length === 0 ? (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 text-center text-slate-400 italic">
             Nenhuma movimentação encontrada com esse filtro.
           </div>
         ) : (
-          filteredMovements.map(movement => renderMovementCard(movement, movement.date.slice(0, 10) !== todayKey))
+          filteredMovements.map(movement => renderMovementCard(movement, periodFilter !== 'today' && movement.date.slice(0, 10) !== todayKey))
         )}
       </div>
     </div>
